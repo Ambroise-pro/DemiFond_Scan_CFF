@@ -32,6 +32,51 @@
     return JSON.parse(JSON.stringify(v));
   }
 
+
+  // Barèmes pédagogiques par niveau : allures moyennes en secondes au 500 m.
+  const LEVEL_ANCHORS_500 = {
+    seconde: {
+      girls: [[6,119],[5,131],[4,143],[3,156],[2,170],[1,187]],
+      boys: [[6,102],[5,110],[4,119],[3,129],[2,140],[1,153]]
+    },
+    premiere: {
+      girls: [[6,115],[5,127],[4,139],[3,152],[2,166],[1,183]],
+      boys: [[6,98],[5,106],[4,115],[3,125],[2,136],[1,149]]
+    }
+  };
+
+  function makePerformanceRows500(anchors) {
+    const rows = [];
+    for (let q = 24; q >= 1; q--) {
+      const points = q / 4;
+      let seconds;
+      if (points >= 1) {
+        const top = Math.min(5, Math.floor(points));
+        const low = top === 5 ? 5 : top;
+        const high = top + 1;
+        const highSeconds = anchors.find(x => x[0] === high)[1];
+        const lowSeconds = anchors.find(x => x[0] === low)[1];
+        seconds = lowSeconds + (highSeconds - lowSeconds) * (points - low);
+      } else {
+        seconds = anchors.find(x => x[0] === 1)[1] + (1 - points) * 40;
+      }
+      const sum = Math.round(seconds * 3);
+      rows.push([Math.floor(sum / 60) + ":" + String(sum % 60).padStart(2,"0"),points]);
+    }
+    return rows;
+  }
+
+  function performancePreset500(level, existing) {
+    const spec = LEVEL_ANCHORS_500[level];
+    if (!spec) throw Error("Niveau inconnu");
+    return {
+      girls:makePerformanceRows500(spec.girls),
+      boys:makePerformanceRows500(spec.boys),
+      gap:clone(existing.gap),
+      efficiency:clone(existing.efficiency)
+    };
+  }
+
   function parseTime(text) {
     const raw = String(text || "").trim().replace(",", ".");
     if (!raw) return null;
@@ -506,6 +551,16 @@
           </div>
         </div>
 
+        <div style="margin:14px 0;padding:12px;border:1px solid #d8e1f3;border-radius:12px">
+          <b>Référentiel de performance : Seconde ou Première</b>
+          <p style="font-size:13px;color:#64748b">Sélectionne un niveau, puis enregistre pour l'appliquer à cette évaluation. Les autres critères restent inchangés.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            <button id="b500PresetSeconde" type="button">Seconde</button>
+            <button id="b500PresetPremiere" type="button">Première</button>
+          </div>
+          <small id="b500SelectedLevel" aria-live="polite">Barème actuel affiché (personnalisable).</small>
+        </div>
+
         <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
           <label><b>Performance filles /6</b><textarea id="b500Girls" style="width:100%;min-height:280px">${rowsToText(b.girls)}</textarea></label>
           <label><b>Performance garçons /6</b><textarea id="b500Boys" style="width:100%;min-height:280px">${rowsToText(b.boys)}</textarea></label>
@@ -534,6 +589,19 @@
           return [timeMode ? parts[0] : Number(parts[0]), Number(parts[1])];
         })
         .filter(Boolean);
+
+    for (const [id,level,label] of [
+      ["b500PresetSeconde","seconde","Seconde"],
+      ["b500PresetPremiere","premiere","Première"]
+    ]) {
+      d.querySelector("#" + id).onclick = () => {
+        const preset = performancePreset500(level,settings());
+        d.querySelector("#b500Girls").value = rowsToText(preset.girls);
+        d.querySelector("#b500Boys").value = rowsToText(preset.boys);
+        d.querySelector("#b500SelectedLevel").textContent =
+          "Barème " + label + " chargé. Clique sur Enregistrer pour l'appliquer.";
+      };
+    }
 
     d.querySelector("#b500Cancel").onclick = () => d.close();
 
