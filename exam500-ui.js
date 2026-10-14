@@ -443,6 +443,32 @@
     };
   }
 
+  // Acces rapide depuis l'accueil, sans evaluation active.
+  // Le code 57 est un verrou d'interface, pas une authentification serveur.
+  function requestBaremeAccess(globalOnly) {
+    const code = window.prompt("Code d'acces au bareme 3 x 500 :");
+    if (code === null) return;
+    if (code.trim() !== "57") {
+      window.alert("Code incorrect.");
+      return;
+    }
+    openBaremeDialog(globalOnly);
+  }
+
+  function ensureHomeBaremeButton() {
+    const home = document.getElementById("home");
+    if (!home || document.getElementById("homeBareme500Btn")) return;
+    const grid = home.querySelector(".scan-home-grid");
+    if (!grid) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = "homeBareme500Btn";
+    button.className = "scan-home-card";
+    button.innerHTML = '<span class="home-card-step">PARAMETRER LES EVALUATIONS</span><strong>⚙️ Barème 3 × 500</strong><span>Consulter et modifier les références Seconde / Première. Accès par code.</span><b>Ouvrir le barème →</b>';
+    button.addEventListener("click", () => requestBaremeAccess(true));
+    grid.appendChild(button);
+  }
+
   function ensureBaremeButton() {
     const manager =
       document.getElementById(
@@ -502,14 +528,14 @@
       "⚙️ Barème 3 × 500";
 
     button.onclick =
-      openBaremeDialog;
+      () => requestBaremeAccess(false);
 
     actions.appendChild(
       button
     );
   }
 
-  function openBaremeDialog() {
+  function openBaremeDialog(globalOnly = false) {
     let d = document.getElementById("exam500BaremeDialog");
     if (!d) {
       d = document.createElement("dialog");
@@ -517,7 +543,7 @@
       document.body.appendChild(d);
     }
 
-    const b = settings();
+    const b = globalOnly ? (db.settings.exam500Bareme || clone(DEFAULT_BAREME)) : settings();
 
     const rowsToText = rows => rows.map(r => r.join(" = ")).join("\n");
 
@@ -595,7 +621,7 @@
       ["b500PresetPremiere","premiere","Première"]
     ]) {
       d.querySelector("#" + id).onclick = () => {
-        const preset = performancePreset500(level,settings());
+        const preset = performancePreset500(level,b);
         d.querySelector("#b500Girls").value = rowsToText(preset.girls);
         d.querySelector("#b500Boys").value = rowsToText(preset.boys);
         d.querySelector("#b500SelectedLevel").textContent =
@@ -610,7 +636,7 @@
       db.settings.exam500Bareme = clone(DEFAULT_BAREME);
 
       const session =
-        typeof activeSession === "function"
+        !globalOnly && typeof activeSession === "function"
           ? activeSession()
           : null;
 
@@ -628,6 +654,7 @@
       save();
       d.close();
 
+      ensureHomeBaremeButton();
       ensureBaremeButton();
       render500TableIfNeeded();
       render500ResultsIfNeeded();
@@ -637,7 +664,7 @@
 
     d.querySelector("#b500Save").onclick = () => {
       const sessionBefore =
-        typeof activeSession === "function"
+        !globalOnly && typeof activeSession === "function"
           ? activeSession()
           : null;
 
@@ -662,7 +689,7 @@
         clone(next);
 
       const session =
-        typeof activeSession === "function"
+        !globalOnly && typeof activeSession === "function"
           ? activeSession()
           : null;
 
@@ -1614,6 +1641,7 @@
 
     const wrapped = function() {
       original();
+      ensureHomeBaremeButton();
       ensureBaremeButton();
       render500TableIfNeeded();
       render500ResultsIfNeeded();
@@ -1628,6 +1656,7 @@
   function install() {
     settings();
     installBridge();
+    ensureHomeBaremeButton();
     installRenderHooks();
     ensureBaremeButton();
   }
