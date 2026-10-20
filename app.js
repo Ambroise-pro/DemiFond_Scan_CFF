@@ -1778,6 +1778,14 @@ function init() {
             ) {
               window.renderExam500View();
             }
+
+            if (
+              page === 'results' &&
+              activeSession()?.type === 'laserrun' &&
+              typeof window.renderLaserRunView === 'function'
+            ) {
+              window.renderLaserRunView();
+            }
           };
       }
     );

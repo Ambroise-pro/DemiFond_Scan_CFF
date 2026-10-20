@@ -6,7 +6,7 @@
   const today = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Luxembourg',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const dayOf = value => new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Luxembourg',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(value || Date.now()));
   const dayLabel = value => value ? new Date(value + 'T12:00:00').toLocaleDateString('fr-FR') : 'Sans date';
-  const protocol = type => ({training:'Entraînement', ccf:'2 × 800 · AFL', exam500:'3 × 500'}[type] || 'Protocole détecté au premier QR');
+  const protocol = type => ({training:'Entraînement', ccf:'2 × 800 · AFL', exam500:'3 × 500', laserrun:'Laser Run'}[type] || 'Protocole détecté au premier QR');
   const palette = ['#2563eb','#15803d','#a16207','#7c3aed','#0f766e','#be185d','#c2410c','#475569'];
   const classStyle = g => '--class-color:'+palette[(Number(g?.uiColor)||0)%palette.length]+';';
   let mode = 'classes', view = 'classes', classId = null, lessonId = null, currentPage = 'home', target = null;
@@ -91,7 +91,8 @@
           '<div class="flow-actions"><button type="button" data-action="return-lesson">← Séance et exercices</button><button type="button" data-action="edit-exercise">Corriger les résultats</button>'+
           '<button type="button" class="flow-scan" data-action="scan-exercise" data-id="'+html(exercise.id)+'" '+(exercise.status==='locked'?'disabled':'')+'>📷 Scanner cet exercice</button>'+
           '<button type="button" class="flow-primary" data-action="save-current-lesson">💾 Sauvegarder la séance en HTML</button>'+
-          (exercise.type==='exam500'?'<button type="button" data-action="bareme">⚙️ Barème 3 × 500</button>':'')+'</div>'; }
+          (exercise.type==='exam500'?'<button type="button" data-action="bareme">⚙️ Barème 3 × 500</button>':'')+
+          (exercise.type==='laserrun'?'<button type="button" data-action="bareme-laserrun">⚙️ Barème Laser Run</button>':'')+'</div>'; }
         if(currentPage==='group') {
           document.querySelector('#group .student-list-card')?.classList.remove('hidden');
           document.querySelectorAll('.session-row').forEach(row=>row.classList.toggle('hidden',String(row.dataset.sessionId)!==String(exercise.id)));
@@ -191,6 +192,7 @@
     render();
     if (exercise.type === 'training') window.renderTrainingResults?.();
     if (exercise.type === 'exam500') window.renderExam500View?.();
+    if (exercise.type === 'laserrun') window.renderLaserRunView?.();
   }
   function renderDestination() {
     const {group, exercise} = activePair();
@@ -349,11 +351,11 @@
   }
   function routeProtocol(raw,handler) {
     let data;try{data=typeof raw==='string'?JSON.parse(raw):raw;}catch{return handler(raw);}
-    const type=data?.type==='DF_3X500_RESULT'?'exam500':data?.type==='DF_TRAINING_RESULT'?'training':data?.studentId&&[1,2].includes(Number(data.race))?'ccf':null;
+    const type=window.DFLaserRun?.isPayload(data)?'laserrun':data?.type==='DF_3X500_RESULT'?'exam500':data?.type==='DF_TRAINING_RESULT'?'training':data?.studentId&&[1,2].includes(Number(data.race))?'ccf':null;
     const {group,exercise}=activePair();
     if(!type||!group||!exercise)return handler(raw);
     const previousType=exercise.type;
-    const effectiveType=exercise.type||(hasResults(group,exercise)?(exercise.students?.some(s=>s.exam500)?'exam500':exercise.students?.length?'ccf':'training'):'');
+    const effectiveType=exercise.type||(hasResults(group,exercise)?(exercise.students?.some(s=>s.exam500)?'exam500':exercise.students?.some(s=>s.laserRun)?'laserrun':exercise.students?.length?'ccf':'training'):'');
     if(!effectiveType||effectiveType===type)return handler(raw);
     const previousTarget=target,previousId=db.activeSessionId;
     let destination=exercise,created=false;
@@ -363,7 +365,7 @@
     } else {
       destination=group.sessions.find(e=>e.autoProtocol&&e.lessonId===exercise.lessonId&&e.type===type&&e.status!=='locked');
       if(!destination) {
-        const base=({training:'Entraînement',ccf:'2 × 800',exam500:'3 × 500'})[type];
+        const base=({training:'Entraînement',ccf:'2 × 800',exam500:'3 × 500',laserrun:'Laser Run'})[type];
         let label=base,n=2;while(group.sessions.some(e=>e.lessonId===exercise.lessonId&&e.label===label))label=base+' ('+(n++)+')';
         destination={id:uid(),createdAt:Date.now(),lessonId:exercise.lessonId,lessonDate:exercise.lessonDate,lessonLabel:exercise.lessonLabel,label,type:'',status:'open',students:[],autoProtocol:true};
         group.sessions.push(destination);created=true;
@@ -414,6 +416,7 @@
     else if(a==='delete-lesson')deleteLesson();
     else if(a==='edit-exercise'){showPage('group');render();}
     else if(a==='bareme')$('exam500BaremeBtn')?.click();
+    else if(a==='bareme-laserrun')window.DFLaserRun?.openBareme();
     else if(a==='scan-exercise')openScan(button.dataset.id);
     else if(a==='exercise-results')openResults(button.dataset.id);
     else if(a==='finish-scan'){target=null;mode='classes';view='exercises';showPage('workflow');}

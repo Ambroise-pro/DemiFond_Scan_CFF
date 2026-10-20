@@ -42,7 +42,7 @@
 
 <header class="scan-app-header">
   <div><small>EPS · VAUBAN · PROFESSEUR</small><h1>DemiFond Scan</h1><p>Collecter, consulter et évaluer.</p></div>
-  <div><span id="scanNetworkStatus" class="network-status">v71</span></div>
+  <div><span id="scanNetworkStatus" class="network-status">v72</span></div>
 </header>
 
 
@@ -388,7 +388,7 @@
 <script src="/qr-ui.js"></script>
 
 <!-- Moteur principal -->
-<script src="/app.js?v=18"></script>
+<script src="/app.js?v=19"></script>
 
 <!-- Validation stricte des QR -->
 <script src="/qr-validation.js?v=6"></script>
@@ -397,22 +397,25 @@
 <script src="/storage-safety.js?v=1"></script>
 
 <!-- Évaluation CCF -->
-<script src="/evaluation-ccf.js?v=6"></script>
+<script src="/evaluation-ccf.js?v=7"></script>
 
 <!-- Archive iPad lisible + réimportable -->
-<script src="/archive-ui.js?v=8"></script>
+<script src="/archive-ui.js?v=9"></script>
 
 <!-- Résultats -->
 <script src="/ccf-results-ui.js?v=1"></script>
 
 <!-- Espaces / évaluations -->
-<script src="/group-sessions-ui.js?v=11"></script>
+<script src="/group-sessions-ui.js?v=12"></script>
 
 <!-- Cartes espaces -->
 <script src="/spaces-ui.js?v=1"></script>
 
 <!-- 3 x 500 + bareme modifiable -->
 <script src="/exam500-ui.js?v=18"></script>
+
+<!-- Laser Run + bareme modifiable -->
+<script src="/laserrun-ui.js?v=1"></script>
 
 
 <!-- Résultats Chrono Carnet hors CCF -->
@@ -426,7 +429,7 @@
 <script src="/help-ui.js?v=1"></script>
 
 <!-- Parcours professeur -->
-<script src="/workspace-ui.js?v=9"></script>
+<script src="/workspace-ui.js?v=10"></script>
 
 <!-- Scanner iPad -->
 <script src="/scanner-ios.js?v=2"></script>
@@ -469,7 +472,7 @@
             await navigator
               .serviceWorker
               .register(
-                "/offline-worker.js?v=68",
+                "/offline-worker.js?v=72",
                 {
                   updateViaCache:
                     "none"
