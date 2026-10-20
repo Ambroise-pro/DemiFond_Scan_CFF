@@ -748,8 +748,29 @@
     }
   }
 
+  function ensureTableStyles() {
+    if (document.getElementById("laserRunTableStyles")) return;
+    const style = document.createElement("style");
+    style.id = "laserRunTableStyles";
+    style.textContent =
+      "table.laserrun-table{min-width:0!important;width:100%}" +
+      "table.laserrun-table th,table.laserrun-table td{min-width:0!important;padding:8px 5px;white-space:normal}" +
+      "table.laserrun-table th:nth-child(1),table.laserrun-table td:nth-child(1){min-width:140px!important;max-width:none}" +
+      "table.laserrun-table th:nth-child(n+8):not(:last-child),table.laserrun-table td:nth-child(n+8):not(:last-child){background:#eef2ff}" +
+      "table.laserrun-table select{min-width:62px;font-size:16px;padding:6px 4px}" +
+      "@media(max-width:820px){" +
+        "table.laserrun-table th,table.laserrun-table td{padding:6px 2px;font-size:11px}" +
+        "table.laserrun-table th:nth-child(1),table.laserrun-table td:nth-child(1){min-width:96px!important}" +
+        "table.laserrun-table select{min-width:50px;padding:5px 1px}" +
+      "}";
+    document.head.appendChild(style);
+  }
+
   function renderResultsIfNeeded() {
-    if (!isLaserRunSession(current())) return;
+    if (!isLaserRunSession(current())) {
+      document.querySelector("#resultRows")?.closest("table")?.classList.remove("laserrun-table");
+      return;
+    }
 
     const body = document.getElementById("resultRows");
     if (!body) return;
@@ -784,6 +805,11 @@
     }).join("");
 
     bindInlineFields(body);
+
+    // Le tableau hérite du gabarit 2 × 800 (2050 px) : on le resserre pour
+    // que les critères à saisir restent visibles sur iPad.
+    ensureTableStyles();
+    body.closest("table")?.classList.add("laserrun-table");
 
     const head = document.querySelector("#results .table thead tr");
     if (head) {
