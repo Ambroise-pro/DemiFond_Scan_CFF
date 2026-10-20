@@ -1245,3 +1245,43 @@ body[data-workspace-page] header.scan-app-header{justify-content:flex-end;paddin
 
 .flow-scan{background:#edf7f1;color:#166534;border-color:#a7d5b7;font-weight:700}
 nav{gap:12px}
+
+/* =========================================================
+   NAVIGATION : chemin, classes, séances
+   ========================================================= */
+
+nav{align-items:center}
+.flow-crumbs{display:flex;align-items:center;flex-wrap:nowrap;gap:2px;margin:0;padding:0;list-style:none;min-width:0;overflow-x:auto}
+.flow-crumbs:empty{display:none}
+.flow-crumbs li{display:flex;align-items:center;flex-shrink:0}
+.flow-crumbs li+li::before{content:"›";margin:0 6px;color:#94a3b8;font-weight:700}
+.flow-crumbs button{min-height:44px;padding:8px 12px;background:#edf4ff;color:#254f7d;border-color:#bed1eb;font-weight:700}
+.flow-crumbs span[aria-current]{padding:8px 4px;font-weight:800;color:#172033}
+#quickScanButton{margin-left:auto}
+
+.flow-class-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:10px max(16px, calc((100vw - 1344px) / 2));background:#fff;border-bottom:1px solid #e2e8f0}
+.class-pills{display:flex;flex-wrap:wrap;gap:8px}
+.class-pill{min-height:44px;padding:8px 16px;border-radius:999px;border:2px solid var(--class-color,#2563eb);background:color-mix(in srgb,var(--class-color,#2563eb) 8%,white);color:var(--class-color,#2563eb);font-weight:800}
+.class-pill.active{background:var(--class-color,#2563eb);color:#fff}
+.lesson-steps{display:flex;gap:8px;flex-wrap:wrap}
+.lesson-steps button{min-height:44px;font-weight:700}
+.lesson-steps button:disabled{opacity:.45}
+
+.home-resume{display:grid;gap:14px;margin-bottom:18px}
+.home-resume:empty{display:none}
+.resume-card{display:flex;flex-direction:column;align-items:center;gap:8px;padding:22px;border-radius:22px;border:2px solid var(--class-color,#2563eb);border-left-width:8px;background:color-mix(in srgb,var(--class-color,#2563eb) 7%,white);text-align:center;white-space:normal}
+.resume-card strong{font-size:22px;color:var(--class-color,#2563eb);overflow-wrap:anywhere}
+.resume-card b{color:#254f7d}
+.today-lessons{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;padding:16px;border:1px solid #dbe3ee;border-radius:18px;background:#fff}
+.today-lessons .class-pills{justify-content:center}
+
+.exercise-card{cursor:pointer}
+.exercise-card:focus-visible{outline:3px solid var(--class-color,#2563eb);outline-offset:3px}
+.exercise-card .exercise-stats{font-weight:700;color:#334155}
+.exercise-card .exercise-open{color:var(--class-color,#2563eb);font-size:14px}
+.flow-heading>div{max-width:100%}
+
+@media(max-width:620px){
+  .flow-class-bar{padding:8px 12px}
+  .flow-crumbs button{padding:6px 10px}
+}
