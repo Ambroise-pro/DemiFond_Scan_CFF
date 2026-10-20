@@ -40,12 +40,12 @@
 <body>
 
 
-<div id="classTabs" class="class-tabs" role="tablist" aria-label="Classes"></div>
-
 <header class="scan-app-header">
   <div><small>EPS · VAUBAN · PROFESSEUR</small><h1>DemiFond Scan</h1><p>Collecter, consulter et évaluer.</p></div>
-  <div><span id="scanNetworkStatus" class="network-status">v75</span></div>
+  <div><span id="scanNetworkStatus" class="network-status">v76</span></div>
 </header>
+
+<div id="classTabs" class="class-tabs" role="tablist" aria-label="Classes"></div>
 
 
 <nav aria-label="Navigation"><ol id="flowCrumbs" class="flow-crumbs" aria-label="Vous êtes ici"></ol><button id="quickScanButton" type="button" class="flow-scan" data-action="quick-scan">📷 Scanner</button></nav>
@@ -432,7 +432,7 @@
 <script src="/help-ui.js?v=2"></script>
 
 <!-- Parcours professeur -->
-<script src="/workspace-ui.js?v=12"></script>
+<script src="/workspace-ui.js?v=13"></script>
 
 <!-- Scanner iPad -->
 <script src="/scanner-ios.js?v=2"></script>
@@ -475,7 +475,7 @@
             await navigator
               .serviceWorker
               .register(
-                "/offline-worker.js?v=75",
+                "/offline-worker.js?v=76",
                 {
                   updateViaCache:
                     "none"
