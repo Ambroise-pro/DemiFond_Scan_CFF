@@ -272,21 +272,56 @@
     return kind === "text" ? "ignore" : "criterion";
   }
 
-  const rowsToText = rows => (rows || []).map(r => r.join(" = ")).join("\n");
+  /*
+   * Grille éditable : une ligne = des points et le seuil à atteindre
+   * (un seul seuil, ou un seuil filles et un seuil garçons).
+   */
+  function tableFromCriterion(c) {
+    const text = v => v == null ? "" : String(v);
+    if (!c.split) {
+      return (c.rows || []).map(([value, pts]) => ({pts:text(pts), all:text(value), girls:"", boys:""}));
+    }
+    const girls = c.girls || [], boys = c.boys || [];
+    if (girls.length === boys.length) {
+      return girls.map(([value, pts], i) => ({pts:text(pts), all:"", girls:text(value), boys:text(boys[i][0])}));
+    }
+    const points = [...new Set([...girls, ...boys].map(r => Number(r[1])))].sort((a, b) => b - a);
+    return points.map(pts => ({
+      pts:text(pts),
+      all:"",
+      girls:text(girls.find(r => Number(r[1]) === pts)?.[0]),
+      boys:text(boys.find(r => Number(r[1]) === pts)?.[0])
+    }));
+  }
 
-  function parseRows(text, kind) {
-    const rows = String(text || "")
-      .split(/\n+/)
-      .map(line => line.trim())
-      .filter(Boolean)
-      .map(line => {
-        const parts = line.split("=").map(x => x.trim());
-        if (parts.length !== 2) return null;
-        const pts = Number(parts[1].replace(",", "."));
-        if (!Number.isFinite(pts) || readValue(kind, parts[0]) == null) return null;
-        return [kind === "duration" ? parts[0] : Number(String(parts[0]).replace(",", ".").replace("%", "")), pts];
-      });
-    return rows.includes(null) ? null : rows;
+  const emptyRows = n => Array.from({length:n}, () => ({pts:"", all:"", girls:"", boys:""}));
+
+  function newCriterion(field) {
+    return {id:newId(), field:field.key, kind:field.kind, label:field.key, max:6, split:field.kind === "duration", rows:[], girls:[], boys:[], table:emptyRows(4)};
+  }
+
+  function cleanValue(kind, text) {
+    const raw = String(text).trim();
+    return kind === "duration" ? raw : Number(raw.replace(",", ".").replace("%", ""));
+  }
+
+  // Lignes saisies -> grilles [[valeur, points]] ; message d'erreur si une ligne est incomplète.
+  function gridsFromTable(c) {
+    const out = {rows:[], girls:[], boys:[]};
+    const sides = c.split ? ["girls", "boys"] : ["all"];
+    for (const [index, row] of c.table.entries()) {
+      const filled = sides.filter(side => String(row[side]).trim() !== "");
+      if (!filled.length && String(row.pts).trim() === "") continue;
+      const pts = Number(String(row.pts).replace(",", "."));
+      if (String(row.pts).trim() === "" || !Number.isFinite(pts)) return {error:"ligne " + (index + 1) + " : points manquants"};
+      if (!filled.length) return {error:"ligne " + (index + 1) + " : valeur manquante"};
+      for (const side of filled) {
+        if (readValue(c.kind, row[side]) == null) return {error:"ligne " + (index + 1) + " : valeur « " + row[side] + " » illisible"};
+        out[side === "all" ? "rows" : side].push([cleanValue(c.kind, row[side]), pts]);
+      }
+    }
+    if (c.split ? !out.girls.length || !out.boys.length : !out.rows.length) return {error:"ajoute au moins une ligne" + (c.split ? " pour les filles et pour les garçons" : "")};
+    return out;
   }
 
   function newId() {
@@ -311,7 +346,7 @@
       name: base?.name || "",
       example: base?.example || null,
       fields: base ? clone(base.fields || []) : [],
-      criteria: base ? clone(base.criteria) : [],
+      criteria: base ? clone(base.criteria).map(c => ({...c, table:tableFromCriterion(c)})) : [],
       manual: base ? clone(base.manual) : []
     };
     let stopCamera = () => {};
@@ -342,7 +377,7 @@
       state.criteria = state.criteria.filter(c => state.fields.some(f => f.key === c.field));
       for (const field of state.fields) {
         if (field.role === "criterion" && !state.criteria.some(c => c.field === field.key)) {
-          state.criteria.push({id:newId(), field:field.key, kind:field.kind, label:field.key, max:6, split:field.kind === "duration", rows:[], girls:[], boys:[]});
+          state.criteria.push(newCriterion(field));
         }
       }
       for (const field of state.fields) {
@@ -363,9 +398,12 @@
         c.label = box.querySelector(".cb-label").value.trim() || c.field;
         c.max = Number(box.querySelector(".cb-max").value) || 0;
         c.split = box.querySelector(".cb-split").checked;
-        c.rowsText = box.querySelector(".cb-rows")?.value;
-        c.girlsText = box.querySelector(".cb-girls")?.value;
-        c.boysText = box.querySelector(".cb-boys")?.value;
+        c.table = [...box.querySelectorAll("tr[data-row]")].map(tr => ({
+          pts: tr.querySelector(".cb-pts").value,
+          all: tr.querySelector(".cb-v-all")?.value ?? "",
+          girls: tr.querySelector(".cb-v-girls")?.value ?? "",
+          boys: tr.querySelector(".cb-v-boys")?.value ?? ""
+        }));
       });
       d.querySelectorAll("[data-manual]").forEach(row => {
         const c = state.manual.find(x => x.id === row.dataset.manual);
@@ -380,15 +418,24 @@
       for (const field of state.fields) {
         const existing = state.criteria.find(c => c.field === field.key);
         if (field.role === "criterion" && !existing) {
-          state.criteria.push({id:newId(), field:field.key, kind:field.kind, label:field.key, max:6, split:field.kind === "duration", rows:[], girls:[], boys:[]});
+          state.criteria.push(newCriterion(field));
         }
       }
       state.criteria = state.criteria.filter(c => state.fields.some(f => f.key === c.field && f.role === "criterion"));
     }
 
-    function gridArea(cls, rows, text, kind) {
-      const placeholder = kind === "duration" ? "8:10 = 6\n8:20 = 5.75\n…\n15:00 = 0" : "15 = 0\n40 = 2\n…\n85 = 6";
-      return '<textarea class="' + cls + '" placeholder="' + esc(placeholder) + '">' + esc(text ?? rowsToText(rows)) + '</textarea>';
+    function gridTable(c) {
+      const placeholder = {duration:"9:10", percent:"60", number:"1200"}[c.kind] || "";
+      const unit = {duration:"temps", percent:"%", number:"valeur"}[c.kind] || "valeur";
+      const cell = (cls, value) => '<td><input class="' + cls + '" inputmode="' + (c.kind === "duration" ? "text" : "decimal") + '" value="' + esc(value) + '" placeholder="' + placeholder + '"></td>';
+      return '<table class="cb-grid-table"><thead><tr><th>Points</th>' +
+        (c.split ? '<th>Filles (' + unit + ')</th><th>Garçons (' + unit + ')</th>' : '<th>À partir de (' + unit + ')</th>') +
+        '<th></th></tr></thead><tbody>' +
+        c.table.map((row, i) => '<tr data-row="' + i + '">' +
+          '<td><input class="cb-pts" type="number" step="0.25" min="0" value="' + esc(row.pts) + '" placeholder="0"></td>' +
+          (c.split ? cell("cb-v-girls", row.girls) + cell("cb-v-boys", row.boys) : cell("cb-v-all", row.all)) +
+          '<td><button type="button" class="cb-remove" data-del-row="' + i + '" aria-label="Retirer la ligne ' + (i + 1) + '">✕</button></td></tr>').join("") +
+        '</tbody></table><button type="button" class="cb-add-row">+ Ajouter une ligne</button>';
     }
 
     function draw() {
@@ -443,8 +490,9 @@
           ${state.criteria.length ? `
           <section class="cb-block">
             <b>3. Grilles de notation</b>
-            <p class="cb-hint">Une ligne par seuil : <b>valeur = points</b>. L'élève obtient les points du dernier seuil atteint
-              (sous le premier seuil : les points du premier). Temps au format 9:10, pourcentages sans le signe %.</p>
+            <p class="cb-hint">Une ligne par seuil : les points et la valeur à partir de laquelle ils sont attribués.
+              L'élève obtient les points du dernier seuil atteint (sous le premier seuil : les points du premier).
+              Temps au format 9:10, pourcentages sans le signe %.</p>
             ${state.criteria.map(c => `
               <div class="cb-criterion" data-criterion="${esc(c.id)}">
                 <div class="cb-row">
@@ -453,9 +501,7 @@
                   <label class="cb-check"><input class="cb-split" type="checkbox" ${c.split ? "checked" : ""}> Grilles filles / garçons séparées</label>
                 </div>
                 <small>Champ « ${esc(c.field)} » · ${KIND_LABELS[c.kind]}</small>
-                ${c.split
-                  ? `<div class="cb-grids"><label>Filles${gridArea("cb-girls", c.girls, c.girlsText, c.kind)}</label><label>Garçons${gridArea("cb-boys", c.boys, c.boysText, c.kind)}</label></div>`
-                  : `<div class="cb-grids"><label>Filles et garçons${gridArea("cb-rows", c.rows, c.rowsText, c.kind)}</label></div>`}
+                ${gridTable(c)}
               </div>`).join("")}
           </section>` : ""}
 
@@ -499,8 +545,24 @@
         readForm();
         const c = state.criteria.find(x => x.id === box.closest("[data-criterion]").dataset.criterion);
         // Bascule une grille unique vers filles / garçons (et inversement) sans perdre la saisie.
-        if (c.split) { c.girlsText = c.girlsText ?? c.rowsText; c.boysText = c.boysText ?? c.rowsText; }
-        else c.rowsText = c.rowsText ?? c.girlsText;
+        for (const row of c.table) {
+          if (c.split) { row.girls = row.girls || row.all; row.boys = row.boys || row.all; }
+          else row.all = row.all || row.girls || row.boys;
+        }
+        draw();
+      });
+      d.querySelectorAll(".cb-add-row").forEach(button => button.onclick = () => {
+        readForm();
+        const c = state.criteria.find(x => x.id === button.closest("[data-criterion]").dataset.criterion);
+        c.table.push(...emptyRows(1));
+        draw();
+        d.querySelector('[data-criterion="' + c.id + '"] tr[data-row]:last-child .cb-pts')?.focus();
+      });
+      d.querySelectorAll("[data-del-row]").forEach(button => button.onclick = () => {
+        readForm();
+        const c = state.criteria.find(x => x.id === button.closest("[data-criterion]").dataset.criterion);
+        c.table.splice(Number(button.dataset.delRow), 1);
+        if (!c.table.length) c.table.push(...emptyRows(1));
         draw();
       });
       d.querySelector("#cbAddManual").onclick = () => {
@@ -534,23 +596,12 @@
 
       const criteria = [];
       for (const c of state.criteria) {
-        const text = key => c[key + "Text"] ?? rowsToText(c[key]);
-        const grid = key => parseRows(text(key), c.kind);
-        const out = {id:c.id, field:c.field, kind:c.kind, label:c.label, max:c.max, split:c.split, rows:[], girls:[], boys:[]};
-        if (c.split) {
-          out.girls = grid("girls");
-          out.boys = grid("boys");
-          if (!out.girls?.length || !out.boys?.length) {
-            alert("Complète les grilles filles et garçons du critère « " + c.label + " » (format : valeur = points).");
-            return;
-          }
-        } else {
-          out.rows = grid("rows");
-          if (!out.rows?.length) {
-            alert("Complète la grille du critère « " + c.label + " » (format : valeur = points).");
-            return;
-          }
+        const grids = gridsFromTable(c);
+        if (grids.error) {
+          alert("Critère « " + c.label + " » : " + grids.error + ".");
+          return;
         }
+        const out = {id:c.id, field:c.field, kind:c.kind, label:c.label, max:c.max, split:c.split, ...grids};
         if (!(out.max > 0)) { alert("Le critère « " + c.label + " » doit valoir plus de 0 point."); return; }
         criteria.push(out);
       }

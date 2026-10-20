@@ -27,7 +27,7 @@
 
   <link
     rel="stylesheet"
-    href="/modern-ui.css?v=15"
+    href="/modern-ui.css?v=16"
   >
 
   <title>
@@ -42,7 +42,7 @@
 
 <header class="scan-app-header">
   <div class="app-brand"><h1>DemiFond Scan</h1><p>Le carnet du professeur</p></div>
-  <div><span id="scanNetworkStatus" class="network-status">v79</span></div>
+  <div><span id="scanNetworkStatus" class="network-status">v80</span></div>
 </header>
 
 <div id="classTabs" class="class-tabs" role="tablist" aria-label="Classes"></div>
@@ -421,7 +421,7 @@
 <script src="/laserrun-ui.js?v=2"></script>
 
 <!-- Barèmes personnalisés -->
-<script src="/custom-bareme-ui.js?v=1"></script>
+<script src="/custom-bareme-ui.js?v=2"></script>
 
 
 <!-- Résultats Chrono Carnet hors CCF -->
@@ -478,7 +478,7 @@
             await navigator
               .serviceWorker
               .register(
-                "/offline-worker.js?v=79",
+                "/offline-worker.js?v=80",
                 {
                   updateViaCache:
                     "none"
