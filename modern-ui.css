@@ -1285,3 +1285,11 @@ nav{align-items:center}
   .flow-class-bar{padding:8px 12px}
   .flow-crumbs button{padding:6px 10px}
 }
+
+/* Onglets de classes : intercalaires tout en haut */
+.class-tabs{display:flex;align-items:flex-end;gap:4px;overflow-x:auto;scrollbar-width:thin;padding:10px max(16px, calc((100vw - 1344px) / 2)) 0;background:#e9eef5;border-bottom:4px solid var(--class-color,#94a3b8)}
+.class-tab{flex-shrink:0;min-height:44px;margin:0;padding:10px 20px 8px;border:2px solid var(--class-color,#2563eb);border-bottom:0;border-radius:14px 14px 0 0;background:color-mix(in srgb,var(--class-color,#2563eb) 14%,white);color:var(--class-color,#2563eb);font-weight:800;white-space:nowrap;box-shadow:none}
+.class-tab:hover{background:color-mix(in srgb,var(--class-color,#2563eb) 24%,white)}
+.class-tab.active{min-height:52px;padding-top:14px;background:var(--class-color,#2563eb);color:#fff}
+.class-tab-add{--class-color:#64748b;padding-inline:16px;font-size:20px;line-height:1}
+.flow-class-bar{justify-content:flex-end}
