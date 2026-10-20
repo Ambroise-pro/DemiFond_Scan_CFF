@@ -101,6 +101,7 @@
         }
       }
     }
+    renderClassTabs();
     renderCrumbs();
     renderClassBar();
   }
@@ -211,27 +212,31 @@
       ? '<button type="button" data-action="'+item.action+'"'+(item.id ? ' data-id="'+html(item.id)+'"' : '')+(item.group ? ' data-group="'+html(item.group)+'"' : '')+'>'+html(item.label)+'</button>'
       : '<span aria-current="page">'+html(item.label)+'</span>') + '</li>').join('');
   }
+  // Class tabs, like the dividers of a binder, always at the very top.
+  function renderClassTabs() {
+    const box = $('classTabs');
+    if (!box) return;
+    const {group} = context();
+    box.style.cssText = group ? classStyle(group) : '';
+    box.innerHTML = (db.groups || []).map(g => {
+      const active = group && String(g.id) === String(group.id);
+      return '<button type="button" role="tab" class="class-tab'+(active ? ' active' : '')+'" style="'+classStyle(g)+'" aria-selected="'+(active ? 'true' : 'false')+'" data-action="switch-class" data-id="'+html(g.id)+'">'+html(g.name)+'</button>';
+    }).join('') + '<button type="button" class="class-tab class-tab-add" data-action="new-class" title="Créer une classe" aria-label="Créer une classe">+</button>';
+  }
   function renderClassBar() {
     const box = $('flowClassBar');
     if (!box) return;
     const {group, lesson} = context();
-    const groups = db.groups || [];
-    if (!group || groups.length === 0) { box.innerHTML = ''; box.classList.add('hidden'); return; }
+    if (!group || !lesson) { box.innerHTML = ''; box.classList.add('hidden'); return; }
     box.classList.remove('hidden');
-    let arrows = '';
-    if (lesson) {
-      const list = lessons(group), index = list.findIndex(l => String(l.id) === String(lesson.id));
-      const older = list[index + 1], newer = list[index - 1];
-      const arrow = (l, text) => l
-        ? '<button type="button" data-action="crumb-lesson" data-group="'+html(group.id)+'" data-id="'+html(l.id)+'">'+text+'</button>'
-        : '<button type="button" disabled>'+text+'</button>';
-      arrows = '<div class="lesson-steps" aria-label="Changer de séance">' +
-        arrow(older, '‹ ' + (older ? html(lessonName(older)) : 'Séance précédente')) +
-        arrow(newer, (newer ? html(lessonName(newer)) : 'Séance suivante') + ' ›') + '</div>';
-    }
-    box.innerHTML = '<div class="class-pills" aria-label="Changer de classe">' + groups.map(g =>
-      '<button type="button" class="class-pill'+(String(g.id) === String(group.id) ? ' active' : '')+'" style="'+classStyle(g)+'" data-action="switch-class" data-id="'+html(g.id)+'"'+(String(g.id) === String(group.id) ? ' aria-current="true"' : '')+'>'+html(g.name)+'</button>').join('') +
-      '</div>' + arrows;
+    const list = lessons(group), index = list.findIndex(l => String(l.id) === String(lesson.id));
+    const older = list[index + 1], newer = list[index - 1];
+    const arrow = (l, text) => l
+      ? '<button type="button" data-action="crumb-lesson" data-group="'+html(group.id)+'" data-id="'+html(l.id)+'">'+text+'</button>'
+      : '<button type="button" disabled>'+text+'</button>';
+    box.innerHTML = '<div class="lesson-steps" aria-label="Changer de séance">' +
+      arrow(older, '‹ ' + (older ? html(lessonName(older)) : 'Séance précédente')) +
+      arrow(newer, (newer ? html(lessonName(newer)) : 'Séance suivante') + ' ›') + '</div>';
   }
   function renderHome() {
     const box = $('homeResume');
