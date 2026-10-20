@@ -266,8 +266,8 @@
     const group = chosenGroup();
     if (!group) { view='classes'; renderWorkflow(); return; }
     if (view === 'lessons') {
-      box.innerHTML = header(group.name, 'Ouvre la séance du jour ou reprends une séance existante.') +
-        '<div class="flow-actions">' + (todayLessonOf(group)
+      // The class tab and the breadcrumb already name the class.
+      box.innerHTML = '<div class="flow-actions">' + (todayLessonOf(group)
           ? '<button type="button" class="flow-primary" data-action="today-lesson" data-id="'+html(group.id)+'">📅 Ouvrir la séance du jour</button><button type="button" data-action="new-lesson">+ Nouvelle séance</button>'
           : '<button type="button" class="flow-primary" data-action="new-lesson">+ Séance du jour</button>') +
         '<button type="button" data-action="rename-class">Renommer la classe</button></div>' +
