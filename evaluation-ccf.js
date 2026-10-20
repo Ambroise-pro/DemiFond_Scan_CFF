@@ -688,7 +688,8 @@
       !session ||
       session.type === "exam500" ||
       session.type === "laserrun" ||
-      session.type === "custom"
+      session.type === "custom" ||
+      session.type === "data"
     ) {
       return;
     }
@@ -808,7 +809,7 @@
     function() {
       if (
         typeof activeSession === "function" &&
-        ["exam500","laserrun","custom"].includes(activeSession()?.type)
+        ["exam500","laserrun","custom","data"].includes(activeSession()?.type)
       ) {
         return;
       }
@@ -1388,7 +1389,7 @@
     function() {
       if (
         typeof activeSession === "function" &&
-        ["exam500","laserrun","custom"].includes(activeSession()?.type)
+        ["exam500","laserrun","custom","data"].includes(activeSession()?.type)
       ) {
         return;
       }

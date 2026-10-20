@@ -1,5 +1,5 @@
 const VERSION =
-  "df-ccf-81";
+  "df-ccf-82";
 
 
 const FILES = [
@@ -12,7 +12,7 @@ const FILES = [
 
   "/modern-ui.css?v=17",
 
-  "/app.js?v=20",
+  "/app.js?v=21",
 
   "/qr-validation.js?v=6",
 
@@ -28,7 +28,7 @@ const FILES = [
 
   "/laserrun-ui.js?v=3",
 
-  "/custom-bareme-ui.js?v=2",
+  "/custom-bareme-ui.js?v=3",
 
   "/training-qr-ui.js?v=13",
 
@@ -38,13 +38,13 @@ const FILES = [
 
   "/ccf-results-ui.js",
 
-  "/group-sessions-ui.js?v=13",
+  "/group-sessions-ui.js?v=14",
 
   "/spaces-ui.js",
 
   "/help-ui.js",
 
-  "/workspace-ui.js?v=15",
+  "/workspace-ui.js?v=16",
 
   "/scanner-ios.js?v=2",
 

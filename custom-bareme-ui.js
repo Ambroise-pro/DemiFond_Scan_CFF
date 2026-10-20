@@ -750,6 +750,7 @@
 
   // Utilisé par workspace-ui.js pour router un QR vers le bon exercice.
   function typeFor(data, exercise) {
+    if (isDataSession(exercise)) return isDataPayload(data) ? "data" : null;
     if (isCustomSession(exercise) && matches(exercise.customBareme, data)) return "custom";
     if (isBuiltin(data)) return null;
     return templates().some(t => matches(t, data)) ? "custom" : null;
@@ -834,6 +835,192 @@
     if (typeof render === "function") render();
   }
 
+  /* =========================
+     DONNÉES SANS ÉVALUATION
+     Exercice « Aucune évaluation » : on garde les valeurs du QR, sans note.
+  ========================= */
+
+  function isDataSession(session) {
+    return session?.type === "data";
+  }
+
+  // Les QR Chrono Carnet d'entraînement gardent leur propre affichage.
+  function isDataPayload(data) {
+    return !!data && typeof data === "object" && !Array.isArray(data) && data.type !== "DF_TRAINING_RESULT";
+  }
+
+  function roleKey(data, role) {
+    return flatten(data).find(([key, value]) => defaultRole(key, detectKind(value)) === role)?.[0] || null;
+  }
+
+  // Colonnes : tous les champs rencontrés, dans l'ordre d'apparition, sauf le nom.
+  function dataKeys(students) {
+    const keys = [];
+    for (const student of students) {
+      const raw = student.qrData?.raw;
+      if (!raw) continue;
+      const nameKey = roleKey(raw, "name");
+      for (const [key] of flatten(raw)) {
+        if (key !== nameKey && !keys.includes(key)) keys.push(key);
+      }
+    }
+    return keys;
+  }
+
+  function dataCell(student, key) {
+    const value = student.qrData?.raw ? pick(student.qrData.raw, key) : undefined;
+    return value == null || value === "" ? "—" : String(value);
+  }
+
+  function handleData(data, session, group) {
+    if (session.status === "locked") {
+      scanError("Évaluation verrouillée : scan refusé.");
+      return;
+    }
+
+    const nameKey = roleKey(data, "name");
+    const sexKey = roleKey(data, "sex");
+    const classKey = roleKey(data, "class");
+    const name = nameKey ? String(pick(data, nameKey) ?? "").trim().replace(/\s+/g, " ") : "";
+    const label = name || "Relevé " + (session.students.length + 1);
+    const key = normName(label);
+
+    let student = name ? session.students.find(s => sameName(s, key)) : null;
+    const known = name ? (group.students || []).find(s => sameName(s, key)) : null;
+
+    if (student?.qrData) {
+      if (JSON.stringify(student.qrData.raw) === JSON.stringify(data)) {
+        scanError(String(student.last || "").toUpperCase() + " " + (student.first || "") + " · QR déjà scanné.");
+        return;
+      }
+      if (!confirm(String(student.last || "").toUpperCase() + " " + (student.first || "") +
+        "\n\nDes données sont déjà enregistrées.\n\nRemplacer ce relevé ?")) return;
+    }
+
+    const sex = sexKey ? readSex(pick(data, sexKey)) : "";
+    const classroom = classKey ? String(pick(data, classKey) ?? "").trim().toUpperCase() : "";
+
+    if (!student) {
+      student = buildStudent(known
+        ? {studentId:known.externalId || known.id, last:known.last, first:known.first, classroom:known.classroom, sex:known.sex}
+        : {studentId:"QR-" + key.replace(/ /g, "-") + (name ? "" : "-" + Date.now()), ...splitName(label), classroom, sex});
+      session.students.push(student);
+    }
+    if (sex) student.sex = sex;
+    if (classroom) student.classroom = classroom;
+    student.qrData = {raw:data, scannedAt:Date.now()};
+
+    if (name) updateMasterStudent(group, student);
+    db.history.unshift({at:Date.now(), groupId:group.id, sessionId:session.id, studentId:student.id, type:"data"});
+    save();
+    beep();
+
+    const message = document.getElementById("scanMessage");
+    if (message) {
+      message.className = "scan-ok";
+      message.innerHTML =
+        "✓ " + esc(String(student.last || "").toUpperCase()) + " " + esc(student.first || "") +
+        "<br>Données enregistrées (sans note) · " +
+        flatten(data).filter(([k]) => k !== nameKey).slice(0, 4).map(([k, v]) => esc(k) + " " + esc(v)).join(" · ");
+    }
+    toast?.("Données enregistrées");
+    if (typeof render === "function") render();
+  }
+
+  function renderDataViews() {
+    const session = current();
+    const resultsTable = document.querySelector("#resultRows")?.closest("table");
+    if (!isDataSession(session)) {
+      resultsTable?.classList.remove("data-table");
+      return;
+    }
+    const students = visibleStudents();
+    const keys = dataKeys(students);
+
+    const body = document.getElementById("students");
+    if (body) {
+      body.innerHTML = students.map(student => `
+        <tr data-student-id="${esc(student.id)}">
+          <td><b>${esc(String(student.last || "").toUpperCase())} ${esc(student.first || "")}</b></td>
+          <td>${esc(student.classroom || "")}</td>
+          ${keys.map(key => `<td>${esc(dataCell(student, key))}</td>`).join("")}
+          <td><button type="button" class="student-delete-hold" data-student-id="${esc(student.id)}" title="Maintenir pour supprimer">Supprimer</button></td>
+        </tr>`).join("");
+      const head = document.querySelector(".student-list-card thead tr");
+      if (head) head.innerHTML = "<th>Élève</th><th>Classe</th>" + keys.map(key => "<th>" + esc(key) + "</th>").join("") + "<th>Action</th>";
+    }
+
+    const results = document.getElementById("resultRows");
+    if (results) {
+      results.innerHTML = students.map(student => `
+        <tr>
+          <td><b>${esc(String(student.last || "").toUpperCase())} ${esc(student.first || "")}</b></td>
+          ${keys.map(key => `<td>${esc(dataCell(student, key))}</td>`).join("")}
+        </tr>`).join("");
+      ensureStyles();
+      resultsTable?.classList.add("custom-table", "data-table");
+      const head = document.querySelector("#results .table thead tr");
+      if (head) head.innerHTML = "<th>Nom / prénom</th>" + keys.map(key => "<th>" + esc(key) + "</th>").join("");
+      const title = document.querySelector("#results h2");
+      if (title) title.textContent = "Données relevées · sans évaluation";
+      document.getElementById("ccfViewTabs")?.classList.add("hidden");
+      document.getElementById("ccfQuickView")?.classList.add("hidden");
+    }
+
+    const print = document.getElementById("exportPdfCCF");
+    if (print) {
+      print.onclick = event => {
+        event.preventDefault();
+        event.stopPropagation();
+        printDataPDF(students, keys);
+      };
+    }
+  }
+
+  function dataSheet(students, keys) {
+    return "<thead><tr><th>Élève</th><th>Classe</th>" + keys.map(key => "<th>" + esc(key) + "</th>").join("") + "</tr></thead><tbody>" +
+      students.map(student => "<tr><td class=\"student\"><b>" + esc(String(student.last || "").toUpperCase()) + " " + esc(student.first || "") + "</b></td><td>" +
+        esc(student.classroom || "") + "</td>" + keys.map(key => "<td>" + esc(dataCell(student, key)) + "</td>").join("") + "</tr>").join("") + "</tbody>";
+  }
+
+  function printDataPDF(students, keys) {
+    const group = activeGroup();
+    const session = current();
+    const w = window.open("", "_blank");
+    if (!w) { alert("Autorise les fenêtres surgissantes pour générer le PDF."); return; }
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Données relevées</title>
+<style>@page{size:A4 landscape;margin:8mm}body{font-family:Arial,sans-serif;color:#111;margin:0;font-size:11px}h1{font-size:20px;margin:0 0 4px}
+.meta{margin:0 0 10px;color:#444}table{width:100%;border-collapse:collapse}th,td{border:1px solid #aaa;padding:4px 3px;text-align:center;white-space:nowrap}
+th{background:#e9eef7;font-size:10px}td:first-child,th:first-child{text-align:left}</style></head><body>
+<h1>Données relevées · ${esc(session?.label || "")}</h1>
+<p class="meta"><b>${esc(group?.name || "")}</b> · ${students.length} relevé${students.length > 1 ? "s" : ""} · sans évaluation</p>
+<table>${dataSheet(students, keys)}</table>
+<script>window.onload=()=>window.print();<\/script></body></html>`);
+    w.document.close();
+  }
+
+  function buildDataArchive(group, session, payload, statusText) {
+    const students = (session.students || []).slice().sort((a, b) =>
+      String(a.last || "").localeCompare(String(b.last || ""), "fr") ||
+      String(a.first || "").localeCompare(String(b.first || ""), "fr"));
+    const dataJson = JSON.stringify(payload).replace(/</g, "\\u003c");
+    return "<!doctype html><html lang=\"fr\"><head><meta charset=\"utf-8\">" +
+      "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
+      "<title>Données relevées — " + esc(group.name) + "</title>" +
+      "<style>:root{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;color:#172033}*{box-sizing:border-box}" +
+      "body{margin:0;padding:24px;background:#eef2f7}main{max-width:1500px;margin:auto}" +
+      ".hero{background:#172554;color:#fff;padding:24px;border-radius:20px;margin-bottom:16px}.hero h1{margin:0 0 8px;font-size:28px}.hero p{margin:4px 0;color:#dbeafe}" +
+      ".table-wrap{overflow:auto;background:#fff;border-radius:16px;border:1px solid #d8e0ea}table{border-collapse:collapse;width:100%;font-size:13px}" +
+      "th,td{padding:9px;border-bottom:1px solid #e5e7eb;text-align:center;white-space:nowrap}th{background:#f8fafc}td.student{text-align:left}" +
+      ".note{font-size:13px;color:#64748b;margin-top:16px}</style></head><body><main>" +
+      "<section class=\"hero\"><h1>Données relevées</h1><p><b>" + esc(group.name) + "</b></p>" +
+      "<p>" + esc(session.label || "") + " · " + esc(statusText || "") + "</p><p>" + students.length + " relevé(s) · sans évaluation</p></section>" +
+      "<div class=\"table-wrap\"><table>" + dataSheet(students, dataKeys(students)) + "</table></div>" +
+      "<p class=\"note\">Ce fichier est à la fois une archive lisible et une sauvegarde réimportable dans DemiFond Scan CCF.</p>" +
+      "<script id=\"demifond-archive-data\" type=\"application/json\">" + dataJson + "<\/script>" +
+      "</main></body></html>";
+  }
+
   function installBridge() {
     if (typeof window.handleQR !== "function" || window.handleQR.__customBaremeBridge) return;
     const original = window.handleQR;
@@ -848,6 +1035,11 @@
 
       const group = typeof activeGroup === "function" ? activeGroup() : null;
       const session = current();
+
+      if (group && isDataSession(session) && isDataPayload(data)) {
+        handleData(data, session, group);
+        return;
+      }
 
       if (group && isCustomSession(session)) {
         if (matches(session.customBareme, data)) handleCustom(data, session, group);
@@ -1168,6 +1360,31 @@ th{background:#e9eef7;font-size:10px}td:first-child,th:first-child{text-align:le
     renderTableIfNeeded();
     renderResultsIfNeeded();
     installPrintButton();
+    renderDataViews();
+  }
+
+  // Évaluations proposées à la création d'un exercice (valeur, libellé).
+  function evaluationChoices() {
+    return [
+      ["data", "Aucune évaluation · données des QR seulement"],
+      ["laserrun", "Laser Run"],
+      ["exam500", "3 × 500"],
+      ["ccf", "2 × 800 · AFL"],
+      ...templates().map(t => ["custom:" + t.id, "Barème perso · " + t.name])
+    ];
+  }
+
+  function applyEvaluation(exercise, value) {
+    const choice = String(value || "data");
+    if (choice.startsWith("custom:")) {
+      const template = templates().find(t => t.id === choice.slice(7));
+      if (template) {
+        exercise.type = "custom";
+        exercise.customBareme = clone(template);
+        return;
+      }
+    }
+    exercise.type = ["laserrun", "exam500", "ccf"].includes(choice) ? choice : "data";
   }
 
   function afterChange() {
@@ -1185,7 +1402,10 @@ th{background:#e9eef7;font-size:10px}td:first-child,th:first-child{text-align:le
     applyToExercise,
     typeFor,
     summary,
-    buildArchiveReport
+    buildArchiveReport,
+    buildDataArchive,
+    evaluationChoices,
+    applyEvaluation
   };
 
   function installRenderHooks() {

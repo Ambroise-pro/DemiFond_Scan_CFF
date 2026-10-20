@@ -6,7 +6,7 @@
   const today = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Luxembourg',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const dayOf = value => new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Luxembourg',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(value || Date.now()));
   const dayLabel = value => value ? new Date(value + 'T12:00:00').toLocaleDateString('fr-FR') : 'Sans date';
-  const protocol = type => ({training:'Entraînement', ccf:'2 × 800 · AFL', exam500:'3 × 500', laserrun:'Laser Run', custom:'Barème perso'}[type] || 'Protocole détecté au premier QR');
+  const protocol = type => ({training:'Entraînement', ccf:'2 × 800 · AFL', exam500:'3 × 500', laserrun:'Laser Run', custom:'Barème perso', data:'Données seulement · sans évaluation'}[type] || 'Protocole détecté au premier QR');
   const palette = ['#2563eb','#15803d','#a16207','#7c3aed','#0f766e','#be185d','#c2410c','#475569'];
   const classStyle = g => '--class-color:'+palette[(Number(g?.uiColor)||0)%palette.length]+';';
   let mode = 'classes', view = 'classes', classId = null, lessonId = null, currentPage = 'home', target = null;
@@ -174,6 +174,9 @@
       const done = students.filter(s => s.custom);
       return count(done.length, 'scanné', 'scannés') + ' · ' + count(done.filter(s => window.scoreCustom?.(s, exercise.customBareme)?.note20 != null).length, 'note /20 complète', 'notes /20 complètes');
     }
+    if (exercise.type === 'data') {
+      return count(students.filter(s => s.qrData).length, 'relevé', 'relevés') + ' · sans note';
+    }
     if (exercise.type === 'training') {
       return count((db.trainingScans || []).filter(r => String(r.groupId) === String(group.id) && String(r.sessionId) === String(exercise.id)).length, 'résultat', 'résultats');
     }
@@ -284,7 +287,7 @@
       // The whole card opens the results; the scan button keeps its own action.
       '<div class="flow-grid">'+lesson.exercises.map(e => '<div class="flow-card exercise-card" role="button" tabindex="0" data-action="exercise-results" data-id="'+html(e.id)+'" aria-label="Résultats de '+html(e.label)+'"><strong>'+html(e.label)+'</strong><span>'+(e.type==='custom'?'Barème perso · '+html(e.customBareme?.name||''):protocol(e.type))+'</span><span class="exercise-stats">'+html(exerciseStats(group,e))+'</span>'+
         '<div class="flow-actions"><button type="button" class="flow-scan" data-action="scan-exercise" data-id="'+html(e.id)+'" '+(e.status==='locked'?'disabled':'')+'>📷 Scanner ici</button>'+
-        (window.DFCustomBareme&&(!e.type||e.type==='custom')?'<button type="button" data-action="apply-custom" data-id="'+html(e.id)+'">⚙️ Barème perso</button>':'')+'</div>'+
+        (window.DFCustomBareme&&(!e.type||e.type==='custom'||(e.type==='data'&&!e.students?.length))?'<button type="button" data-action="apply-custom" data-id="'+html(e.id)+'">⚙️ Barème perso</button>':'')+'</div>'+
         (e.status==='locked'?'<small>🔒 Épreuve verrouillée</small>':'')+'<b class="exercise-open">Voir les résultats →</b></div>').join('')+'</div>';
   }
   function quickScan() {
@@ -345,7 +348,7 @@
     if (exercise.type === 'training') window.renderTrainingResults?.();
     if (exercise.type === 'exam500') window.renderExam500View?.();
     if (exercise.type === 'laserrun') window.renderLaserRunView?.();
-    if (exercise.type === 'custom') window.renderCustomView?.();
+    if (exercise.type === 'custom' || exercise.type === 'data') window.renderCustomView?.();
   }
   function renderDestination() {
     const {group, exercise} = activePair();
@@ -366,8 +369,17 @@
     dialog.showModal();
     dialog.querySelector('input')?.focus();
   }
+  // The evaluation (grading scale) is chosen when the exercise is created;
+  // without one, the QR values are only collected.
   function exerciseFields() {
-    return '<label>Nom de l’exercice<input name="exercise" value="Exercice 1" required maxlength="100"></label><p class="flow-note">Le type d’exercice est reconnu automatiquement au premier QR : entraînement, 2 × 800 ou 3 × 500.</p>';
+    const choices = window.DFCustomBareme?.evaluationChoices() || [['data','Aucune évaluation · données des QR seulement']];
+    return '<label>Nom de l’exercice<input name="exercise" value="Exercice 1" required maxlength="100"></label>'+
+      '<label>Évaluation (barème)<select name="evaluation">'+choices.map(([value,label])=>'<option value="'+html(value)+'">'+html(label)+'</option>').join('')+'</select></label>'+
+      '<p class="flow-note">Avec un barème, chaque QR scanné est noté. Sans évaluation, l’exercice récupère seulement les données chiffrées des QR.</p>';
+  }
+  function applyEvaluation(exercise, data) {
+    if (window.DFCustomBareme) window.DFCustomBareme.applyEvaluation(exercise, data.get('evaluation'));
+    else exercise.type = 'data';
   }
   // One home card gathers every grading scale; each module keeps its own (hidden) home button.
   function openBaremes() {
@@ -400,6 +412,7 @@
       if(!String(data.get('exercise')||'').trim()){toast('Donne un nom à l’exercice.');return false;}
       const date=String(data.get('date')||''); const label=String(data.get('lesson')||'').trim()||'Séance du '+dayLabel(date);
       lessonId=uid(); const exercise={id:uid(),createdAt:Date.now(),lessonId,lessonDate:date,lessonLabel:label,label:String(data.get('exercise')).trim(),type:'',status:'open',students:[]};
+      applyEvaluation(exercise, data);
       group.sessions.push(exercise); save(); view='exercises'; openScan(exercise.id);
     });
   }
@@ -409,6 +422,7 @@
     dialogForm('Ajouter un exercice · '+dayLabel(lesson.date),exerciseFields().replace('value="Exercice 1"','value="Exercice '+(lesson.exercises.length+1)+'"'),data=>{
       if(!String(data.get('exercise')||'').trim()){toast('Donne un nom à l’exercice.');return false;}
       const exercise={id:uid(),createdAt:Date.now(),lessonId:lesson.id,lessonDate:lesson.date,lessonLabel:lesson.label,label:String(data.get('exercise')).trim(),type:'',status:'open',students:[]};
+      applyEvaluation(exercise, data);
       group.sessions.push(exercise); save(); openScan(exercise.id);
     });
   }
@@ -524,17 +538,18 @@
     const type=window.DFCustomBareme?.typeFor(data,exercise)||(window.DFLaserRun?.isPayload(data)?'laserrun':data?.type==='DF_3X500_RESULT'?'exam500':data?.type==='DF_TRAINING_RESULT'?'training':data?.studentId&&[1,2].includes(Number(data.race))?'ccf':null);
     if(!type||!group||!exercise)return handler(raw);
     const previousType=exercise.type;
-    const effectiveType=exercise.type||(hasResults(group,exercise)?(exercise.students?.some(s=>s.exam500)?'exam500':exercise.students?.some(s=>s.laserRun)?'laserrun':exercise.students?.some(s=>s.custom)?'custom':exercise.students?.length?'ccf':'training'):'');
+    const effectiveType=exercise.type||(hasResults(group,exercise)?(exercise.students?.some(s=>s.exam500)?'exam500':exercise.students?.some(s=>s.laserRun)?'laserrun':exercise.students?.some(s=>s.custom)?'custom':exercise.students?.some(s=>s.qrData)?'data':exercise.students?.length?'ccf':'training'):'');
     if(!effectiveType||effectiveType===type)return handler(raw);
     const previousTarget=target,previousId=db.activeSessionId;
     let destination=exercise,created=false;
-    if(!hasResults(group,exercise)) {
-      // Old empty exercises may still have the former default "training" type.
+    // Old empty exercises may still have the former default "training" type; a "data" exercise
+    // can still take Chrono Carnet results. An evaluation chosen at creation is never replaced.
+    if(!hasResults(group,exercise)&&['','training','data'].includes(previousType||'')) {
       exercise.type='';
     } else {
       destination=group.sessions.find(e=>e.autoProtocol&&e.lessonId===exercise.lessonId&&e.type===type&&e.status!=='locked');
       if(!destination) {
-        const base=({training:'Entraînement',ccf:'2 × 800',exam500:'3 × 500',laserrun:'Laser Run',custom:'Barème perso'})[type];
+        const base=({training:'Entraînement',ccf:'2 × 800',exam500:'3 × 500',laserrun:'Laser Run',custom:'Barème perso',data:'Données'})[type];
         let label=base,n=2;while(group.sessions.some(e=>e.lessonId===exercise.lessonId&&e.label===label))label=base+' ('+(n++)+')';
         destination={id:uid(),createdAt:Date.now(),lessonId:exercise.lessonId,lessonDate:exercise.lessonDate,lessonLabel:exercise.lessonLabel,label,type:'',status:'open',students:[],autoProtocol:true};
         group.sessions.push(destination);created=true;
