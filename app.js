@@ -1789,7 +1789,7 @@ function init() {
 
             if (
               page === 'results' &&
-              activeSession()?.type === 'custom' &&
+              ['custom', 'data'].includes(activeSession()?.type) &&
               typeof window.renderCustomView === 'function'
             ) {
               window.renderCustomView();

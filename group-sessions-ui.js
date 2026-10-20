@@ -376,7 +376,7 @@
 
     if (
       page === "results" &&
-      session.type === "custom" &&
+      ["custom", "data"].includes(session.type) &&
       typeof window
         .renderCustomView ===
         "function"
