@@ -6,7 +6,7 @@
   const today = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Luxembourg',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const dayOf = value => new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Luxembourg',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(value || Date.now()));
   const dayLabel = value => value ? new Date(value + 'T12:00:00').toLocaleDateString('fr-FR') : 'Sans date';
-  const protocol = type => ({training:'Entraînement', ccf:'2 × 800 · AFL', exam500:'3 × 500', laserrun:'Laser Run'}[type] || 'Protocole détecté au premier QR');
+  const protocol = type => ({training:'Entraînement', ccf:'2 × 800 · AFL', exam500:'3 × 500', laserrun:'Laser Run', custom:'Barème perso'}[type] || 'Protocole détecté au premier QR');
   const palette = ['#2563eb','#15803d','#a16207','#7c3aed','#0f766e','#be185d','#c2410c','#475569'];
   const classStyle = g => '--class-color:'+palette[(Number(g?.uiColor)||0)%palette.length]+';';
   let mode = 'classes', view = 'classes', classId = null, lessonId = null, currentPage = 'home', target = null;
@@ -94,7 +94,8 @@
           '<button type="button" class="flow-scan" data-action="scan-exercise" data-id="'+html(exercise.id)+'" '+(exercise.status==='locked'?'disabled':'')+'>📷 Scanner cet exercice</button>'+
           '<button type="button" class="flow-primary" data-action="save-current-lesson">💾 Sauvegarder la séance en HTML</button>'+
           (exercise.type==='exam500'?'<button type="button" data-action="bareme">⚙️ Barème 3 × 500</button>':'')+
-          (exercise.type==='laserrun'?'<button type="button" data-action="bareme-laserrun">⚙️ Barème Laser Run</button>':'')+'</div>'; }
+          (exercise.type==='laserrun'?'<button type="button" data-action="bareme-laserrun">⚙️ Barème Laser Run</button>':'')+
+          (exercise.type==='custom'?'<button type="button" data-action="bareme-custom">⚙️ Barème · '+html(exercise.customBareme?.name||'')+'</button>':'')+'</div>'; }
         if(currentPage==='group') {
           document.querySelector('#group .student-list-card')?.classList.remove('hidden');
           document.querySelectorAll('.session-row').forEach(row=>row.classList.toggle('hidden',String(row.dataset.sessionId)!==String(exercise.id)));
@@ -169,6 +170,10 @@
       const done = students.filter(s => s.exam500?.races?.length);
       return count(done.length, 'scanné', 'scannés') + ' · ' + count(done.filter(s => window.score500?.(s)?.total20 != null).length, 'note /20 complète', 'notes /20 complètes');
     }
+    if (exercise.type === 'custom') {
+      const done = students.filter(s => s.custom);
+      return count(done.length, 'scanné', 'scannés') + ' · ' + count(done.filter(s => window.scoreCustom?.(s, exercise.customBareme)?.note20 != null).length, 'note /20 complète', 'notes /20 complètes');
+    }
     if (exercise.type === 'training') {
       return count((db.trainingScans || []).filter(r => String(r.groupId) === String(group.id) && String(r.sessionId) === String(exercise.id)).length, 'résultat', 'résultats');
     }
@@ -241,15 +246,11 @@
   function renderHome() {
     const box = $('homeResume');
     if (!box) return;
-    const last = lastVisit(), groups = db.groups || [];
-    const where = last ? [last.group.name, last.lesson || last.exercise ? lessonName(last.lesson || {date:last.exercise.lessonDate, label:last.exercise.lessonLabel}) : '', last.exercise?.label || ''].filter(Boolean).join(' · ') : '';
-    box.innerHTML = (last
-      ? '<button type="button" class="resume-card" style="'+classStyle(last.group)+'" data-action="resume"><span class="home-card-step">REPRENDRE</span><strong>'+html(where)+'</strong><b>'+(last.exercise ? 'Revenir aux résultats →' : 'Revenir à la séance →')+'</b></button>'
-      : '') +
-      (groups.length
-        ? '<div class="today-lessons"><strong>📅 Séance du jour</strong><div class="class-pills">' + groups.map(g =>
-            '<button type="button" class="class-pill" style="'+classStyle(g)+'" data-action="today-lesson" data-id="'+html(g.id)+'">'+html(g.name)+(todayLessonOf(g) ? ' · ouvrir' : ' · créer')+'</button>').join('') + '</div></div>'
-        : '');
+    const last = lastVisit();
+    const where = last ? [last.group.name, last.lesson || last.exercise ? lessonName(last.lesson || {date:last.exercise.lessonDate, label:last.exercise.lessonLabel}) : ''].filter(Boolean).join(' · ') : '';
+    box.innerHTML = last
+      ? '<button type="button" class="resume-link" data-action="resume">↩ Revenir à ma séance <span>'+html(where)+'</span></button>'
+      : '';
   }
   function renderWorkflow() {
     const box = $('workflowContent');
@@ -281,8 +282,9 @@
       '<button type="button" class="flow-primary" data-action="new-exercise">+ Ajouter un exercice</button>' +
       '<div class="flow-actions"><button type="button" class="flow-primary" data-action="save-current-lesson">💾 Sauvegarder la séance en HTML</button><button type="button" class="flow-danger" data-action="delete-lesson">Supprimer la séance</button></div>'+
       // The whole card opens the results; the scan button keeps its own action.
-      '<div class="flow-grid">'+lesson.exercises.map(e => '<div class="flow-card exercise-card" role="button" tabindex="0" data-action="exercise-results" data-id="'+html(e.id)+'" aria-label="Résultats de '+html(e.label)+'"><strong>'+html(e.label)+'</strong><span>'+protocol(e.type)+'</span><span class="exercise-stats">'+html(exerciseStats(group,e))+'</span>'+
-        '<div class="flow-actions"><button type="button" class="flow-scan" data-action="scan-exercise" data-id="'+html(e.id)+'" '+(e.status==='locked'?'disabled':'')+'>📷 Scanner ici</button></div>'+
+      '<div class="flow-grid">'+lesson.exercises.map(e => '<div class="flow-card exercise-card" role="button" tabindex="0" data-action="exercise-results" data-id="'+html(e.id)+'" aria-label="Résultats de '+html(e.label)+'"><strong>'+html(e.label)+'</strong><span>'+(e.type==='custom'?'Barème perso · '+html(e.customBareme?.name||''):protocol(e.type))+'</span><span class="exercise-stats">'+html(exerciseStats(group,e))+'</span>'+
+        '<div class="flow-actions"><button type="button" class="flow-scan" data-action="scan-exercise" data-id="'+html(e.id)+'" '+(e.status==='locked'?'disabled':'')+'>📷 Scanner ici</button>'+
+        (window.DFCustomBareme&&(!e.type||e.type==='custom')?'<button type="button" data-action="apply-custom" data-id="'+html(e.id)+'">⚙️ Barème perso</button>':'')+'</div>'+
         (e.status==='locked'?'<small>🔒 Épreuve verrouillée</small>':'')+'<b class="exercise-open">Voir les résultats →</b></div>').join('')+'</div>';
   }
   function quickScan() {
@@ -343,6 +345,7 @@
     if (exercise.type === 'training') window.renderTrainingResults?.();
     if (exercise.type === 'exam500') window.renderExam500View?.();
     if (exercise.type === 'laserrun') window.renderLaserRunView?.();
+    if (exercise.type === 'custom') window.renderCustomView?.();
   }
   function renderDestination() {
     const {group, exercise} = activePair();
@@ -370,11 +373,17 @@
   function openBaremes() {
     const scales = [['homeBareme500Btn','3 × 500','Références Seconde / Première, indice, écart d’annonce.'],['homeBaremeLaserRunBtn','Laser Run','Temps de course filles / garçons, réussite au tir.']]
       .filter(([id]) => $(id));
+    const custom = window.DFCustomBareme;
     dialogForm('Barèmes', '<div class="bareme-choices">' + scales.map(([id,name,hint]) =>
-      '<button type="button" data-bareme="'+id+'"><strong>⚙️ '+html(name)+'</strong><span>'+html(hint)+'</span></button>').join('') + '</div>', () => {});
+      '<button type="button" data-bareme="'+id+'"><strong>⚙️ '+html(name)+'</strong><span>'+html(hint)+'</span></button>').join('') +
+      (custom ? custom.templates().map(t => '<button type="button" data-custom-bareme="'+html(t.id)+'"><strong>✏️ '+html(t.name)+'</strong><span>Barème perso · '+html(custom.summary(t))+'</span></button>').join('') +
+        '<button type="button" class="bareme-create" data-custom-create="1"><strong>+ Créer un barème</strong><span>À partir d’un QR d’exemple : filles / garçons, seuils, critères du prof.</span></button>' : '') +
+      '</div>', () => {});
     const dialog = $('classFlowDialog');
     dialog.querySelector('[type="submit"]')?.remove();
     dialog.querySelectorAll('[data-bareme]').forEach(button => button.onclick = () => { dialog.close(); $(button.dataset.bareme)?.click(); });
+    dialog.querySelectorAll('[data-custom-bareme]').forEach(button => button.onclick = () => { dialog.close(); custom.editTemplate(button.dataset.customBareme); });
+    dialog.querySelector('[data-custom-create]')?.addEventListener('click', () => { dialog.close(); custom.createTemplate(); });
   }
   function createClass() {
     dialogForm('Créer une classe','<label>Classe<input name="name" placeholder="Ex. 1E, 6B…" required maxlength="80"></label>',data=>{
@@ -511,11 +520,11 @@
   }
   function routeProtocol(raw,handler) {
     let data;try{data=typeof raw==='string'?JSON.parse(raw):raw;}catch{return handler(raw);}
-    const type=window.DFLaserRun?.isPayload(data)?'laserrun':data?.type==='DF_3X500_RESULT'?'exam500':data?.type==='DF_TRAINING_RESULT'?'training':data?.studentId&&[1,2].includes(Number(data.race))?'ccf':null;
     const {group,exercise}=activePair();
+    const type=window.DFCustomBareme?.typeFor(data,exercise)||(window.DFLaserRun?.isPayload(data)?'laserrun':data?.type==='DF_3X500_RESULT'?'exam500':data?.type==='DF_TRAINING_RESULT'?'training':data?.studentId&&[1,2].includes(Number(data.race))?'ccf':null);
     if(!type||!group||!exercise)return handler(raw);
     const previousType=exercise.type;
-    const effectiveType=exercise.type||(hasResults(group,exercise)?(exercise.students?.some(s=>s.exam500)?'exam500':exercise.students?.some(s=>s.laserRun)?'laserrun':exercise.students?.length?'ccf':'training'):'');
+    const effectiveType=exercise.type||(hasResults(group,exercise)?(exercise.students?.some(s=>s.exam500)?'exam500':exercise.students?.some(s=>s.laserRun)?'laserrun':exercise.students?.some(s=>s.custom)?'custom':exercise.students?.length?'ccf':'training'):'');
     if(!effectiveType||effectiveType===type)return handler(raw);
     const previousTarget=target,previousId=db.activeSessionId;
     let destination=exercise,created=false;
@@ -525,7 +534,7 @@
     } else {
       destination=group.sessions.find(e=>e.autoProtocol&&e.lessonId===exercise.lessonId&&e.type===type&&e.status!=='locked');
       if(!destination) {
-        const base=({training:'Entraînement',ccf:'2 × 800',exam500:'3 × 500',laserrun:'Laser Run'})[type];
+        const base=({training:'Entraînement',ccf:'2 × 800',exam500:'3 × 500',laserrun:'Laser Run',custom:'Barème perso'})[type];
         let label=base,n=2;while(group.sessions.some(e=>e.lessonId===exercise.lessonId&&e.label===label))label=base+' ('+(n++)+')';
         destination={id:uid(),createdAt:Date.now(),lessonId:exercise.lessonId,lessonDate:exercise.lessonDate,lessonLabel:exercise.lessonLabel,label,type:'',status:'open',students:[],autoProtocol:true};
         group.sessions.push(destination);created=true;
@@ -572,6 +581,8 @@
     else if(a==='today-lesson')openTodayLesson(button.dataset.id);
     else if(a==='resume')resume();
     else if(a==='baremes')openBaremes();
+    else if(a==='bareme-custom')window.DFCustomBareme?.editSessionBareme();
+    else if(a==='apply-custom'){const group=chosenGroup();window.DFCustomBareme?.applyToExercise(group?.sessions?.find(e=>String(e.id)===String(button.dataset.id)),group);}
     else if(a==='class-list'){view='classes';refresh();}
     else if(a==='lesson-list'){view='lessons';refresh();}
     else if(a==='new-lesson')createLesson();

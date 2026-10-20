@@ -625,6 +625,10 @@
       return buildExam500Report(group, session, payload);
     }
 
+    if (session?.type === "custom" && session.customBareme && window.DFCustomBareme) {
+      return window.DFCustomBareme.buildArchiveReport(group, session, payload, statusLabel(session.status));
+    }
+
     if (session?.type === "laserrun" && window.DFLaserRun) {
       return window.DFLaserRun.buildArchiveReport(group, session, payload, statusLabel(session.status));
     }

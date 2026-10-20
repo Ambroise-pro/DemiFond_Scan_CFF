@@ -687,7 +687,8 @@
     if (
       !session ||
       session.type === "exam500" ||
-      session.type === "laserrun"
+      session.type === "laserrun" ||
+      session.type === "custom"
     ) {
       return;
     }
@@ -807,7 +808,7 @@
     function() {
       if (
         typeof activeSession === "function" &&
-        ["exam500","laserrun"].includes(activeSession()?.type)
+        ["exam500","laserrun","custom"].includes(activeSession()?.type)
       ) {
         return;
       }
@@ -1387,7 +1388,7 @@
     function() {
       if (
         typeof activeSession === "function" &&
-        ["exam500","laserrun"].includes(activeSession()?.type)
+        ["exam500","laserrun","custom"].includes(activeSession()?.type)
       ) {
         return;
       }
