@@ -27,7 +27,7 @@
 
   <link
     rel="stylesheet"
-    href="/modern-ui.css?v=16"
+    href="/modern-ui.css?v=17"
   >
 
   <title>
@@ -42,7 +42,7 @@
 
 <header class="scan-app-header">
   <div class="app-brand"><h1>DemiFond Scan</h1><p>Le carnet du professeur</p></div>
-  <div><span id="scanNetworkStatus" class="network-status">v80</span></div>
+  <div><span id="scanNetworkStatus" class="network-status">v81</span></div>
 </header>
 
 <div id="classTabs" class="class-tabs" role="tablist" aria-label="Classes"></div>
@@ -414,11 +414,14 @@
 <!-- Cartes espaces -->
 <script src="/spaces-ui.js?v=1"></script>
 
+<!-- Tableau de barème partagé -->
+<script src="/grid-table-ui.js?v=1"></script>
+
 <!-- 3 x 500 + bareme modifiable -->
-<script src="/exam500-ui.js?v=18"></script>
+<script src="/exam500-ui.js?v=19"></script>
 
 <!-- Laser Run + bareme modifiable -->
-<script src="/laserrun-ui.js?v=2"></script>
+<script src="/laserrun-ui.js?v=3"></script>
 
 <!-- Barèmes personnalisés -->
 <script src="/custom-bareme-ui.js?v=2"></script>
@@ -478,7 +481,7 @@
             await navigator
               .serviceWorker
               .register(
-                "/offline-worker.js?v=80",
+                "/offline-worker.js?v=81",
                 {
                   updateViaCache:
                     "none"

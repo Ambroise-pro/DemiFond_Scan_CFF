@@ -283,7 +283,6 @@
       ? (db.settings.laserRunBareme || clone(DEFAULT_BAREME))
       : settings();
     const labels = criterionLabels();
-    const rowsToText = rows => rows.map(r => r.join(" = ")).join("\n");
 
     d.innerHTML = `
       <div style="min-width:min(920px,94vw);max-height:86vh;overflow:auto;padding:8px">
@@ -305,13 +304,12 @@
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
-          <label><b>Performance filles /6</b><textarea id="lrGirls" style="width:100%;min-height:320px">${rowsToText(b.girls)}</textarea></label>
-          <label><b>Performance garçons /6</b><textarea id="lrBoys" style="width:100%;min-height:320px">${rowsToText(b.boys)}</textarea></label>
-          <label><b>Efficacité tir /6</b><textarea id="lrShooting" style="width:100%;min-height:320px">${rowsToText(b.shooting)}</textarea></label>
-        </div>
+        <p style="font-size:13px;color:#64748b">Une ligne par seuil : les points et la valeur à partir de laquelle ils sont attribués (temps au format 9:10, % sans le signe). L'élève obtient les points du dernier seuil atteint.</p>
 
-        <p style="font-size:13px;color:#64748b">Format d'une ligne : <b>temps = points</b> pour la performance (ex. 9:10 = 4.5), <b>% de réussite = points</b> pour le tir. L'élève obtient les points du dernier seuil atteint.</p>
+        <div class="gt-sections">
+          <section><b>Performance /6 · temps de course</b><div id="lrPerf"></div></section>
+          <section><b>Efficacité tir /6 · % de réussite</b><div id="lrShooting"></div></section>
+        </div>
 
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
           <button id="lrReset" type="button">Réinitialiser</button>
@@ -321,20 +319,8 @@
       </div>
     `;
 
-    const parseRows = (text, timeMode) =>
-      String(text || "")
-        .split(/\n+/)
-        .map(line => line.trim())
-        .filter(Boolean)
-        .map(line => {
-          const parts = line.split("=").map(x => x.trim());
-          if (parts.length !== 2) return null;
-          const key = timeMode ? parts[0] : Number(parts[0].replace(",", "."));
-          const pts = Number(parts[1].replace(",", "."));
-          if (timeMode ? parseDuration(key) == null : !Number.isFinite(key)) return null;
-          if (!Number.isFinite(pts)) return null;
-          return [key, pts];
-        });
+    const perfTable = DFGridTable.mount(d.querySelector("#lrPerf"), {split:true, kind:"duration", unit:"temps", placeholder:"9:10", girls:b.girls, boys:b.boys});
+    const shootingTable = DFGridTable.mount(d.querySelector("#lrShooting"), {kind:"number", unit:"%", placeholder:"60", rows:b.shooting});
 
     const session = !globalOnly ? current() : null;
 
@@ -354,16 +340,16 @@
     };
 
     d.querySelector("#lrSave").onclick = () => {
-      const next = {
-        girls: parseRows(d.querySelector("#lrGirls").value, true),
-        boys: parseRows(d.querySelector("#lrBoys").value, true),
-        shooting: parseRows(d.querySelector("#lrShooting").value, false)
-      };
-
-      if (Object.values(next).some(rows => !rows.length || rows.includes(null))) {
-        alert("Le barème contient une zone vide ou une ligne mal formatée.");
-        return;
+      const perf = perfTable.read();
+      const shooting = shootingTable.read();
+      for (const [label, grid] of [["Performance", perf], ["Efficacité tir", shooting]]) {
+        if (grid.error) {
+          alert(label + " : " + grid.error + ".");
+          return;
+        }
       }
+
+      const next = {girls:perf.girls, boys:perf.boys, shooting:shooting.rows};
 
       db.settings.laserRunBareme = clone(next);
       if (isLaserRunSession(session)) {

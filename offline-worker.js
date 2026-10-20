@@ -1,5 +1,5 @@
 const VERSION =
-  "df-ccf-80";
+  "df-ccf-81";
 
 
 const FILES = [
@@ -10,7 +10,7 @@ const FILES = [
 
   "/app.css",
 
-  "/modern-ui.css?v=16",
+  "/modern-ui.css?v=17",
 
   "/app.js?v=20",
 
@@ -22,9 +22,11 @@ const FILES = [
 
   "/archive-ui.js",
 
-  "/exam500-ui.js?v=18",
+  "/exam500-ui.js?v=19",
 
-  "/laserrun-ui.js?v=2",
+  "/grid-table-ui.js?v=1",
+
+  "/laserrun-ui.js?v=3",
 
   "/custom-bareme-ui.js?v=2",
 
