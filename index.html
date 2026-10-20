@@ -27,7 +27,7 @@
 
   <link
     rel="stylesheet"
-    href="/modern-ui.css?v=13"
+    href="/modern-ui.css?v=14"
   >
 
   <title>
@@ -41,8 +41,8 @@
 
 
 <header class="scan-app-header">
-  <div><small>EPS · VAUBAN · PROFESSEUR</small><h1>DemiFond Scan</h1><p>Collecter, consulter et évaluer.</p></div>
-  <div><span id="scanNetworkStatus" class="network-status">v77</span></div>
+  <div class="app-brand"><h1>DemiFond Scan</h1><p>Le carnet du professeur</p></div>
+  <div><span id="scanNetworkStatus" class="network-status">v78</span></div>
 </header>
 
 <div id="classTabs" class="class-tabs" role="tablist" aria-label="Classes"></div>
@@ -54,8 +54,7 @@
 
 <main>
   <section id="home" class="page">
-    <div class="scan-home-title"><h2 tabindex="-1">DemiFond Scan</h2><p>Le carnet du professeur</p></div>
-    <div id="homeResume" class="home-resume"></div>
+        <div id="homeResume" class="home-resume"></div>
     <div class="scan-home-grid classes-home-grid">
       <button type="button" class="scan-home-card home-spaces" data-flow="classes"><span class="home-card-step">SCANNER · CONSULTER · ÉVALUER</span><strong>Mes classes</strong><span>Choisir une classe et sa séance, scanner, puis consulter les résultats.</span><b>Ouvrir mes classes →</b></button>
       <button type="button" class="scan-home-card home-backups" data-flow="backups"><span class="home-card-step">TÉLÉCHARGER UN HTML</span><strong>Sauvegarder</strong><span>Toutes les classes, une classe ou une séance.</span><b>Choisir une sauvegarde →</b></button>
@@ -476,7 +475,7 @@
             await navigator
               .serviceWorker
               .register(
-                "/offline-worker.js?v=77",
+                "/offline-worker.js?v=78",
                 {
                   updateViaCache:
                     "none"
