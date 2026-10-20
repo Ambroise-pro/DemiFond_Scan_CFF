@@ -1,5 +1,5 @@
 const VERSION =
-  "df-ccf-76";
+  "df-ccf-77";
 
 
 const FILES = [
@@ -10,7 +10,7 @@ const FILES = [
 
   "/app.css",
 
-  "/modern-ui.css?v=12",
+  "/modern-ui.css?v=13",
 
   "/app.js?v=19",
 
@@ -40,7 +40,7 @@ const FILES = [
 
   "/help-ui.js",
 
-  "/workspace-ui.js?v=13",
+  "/workspace-ui.js?v=14",
 
   "/scanner-ios.js?v=2",
 
