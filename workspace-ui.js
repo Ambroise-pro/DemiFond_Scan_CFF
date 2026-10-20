@@ -10,6 +10,8 @@
   const palette = ['#2563eb','#15803d','#a16207','#7c3aed','#0f766e','#be185d','#c2410c','#475569'];
   const classStyle = g => '--class-color:'+palette[(Number(g?.uiColor)||0)%palette.length]+';';
   let mode = 'classes', view = 'classes', classId = null, lessonId = null, currentPage = 'home', target = null;
+  const appVersion = ($('scanNetworkStatus')?.textContent || '').trim();
+  const LAST_VISIT_KEY = 'demifond-last-visit';
 
   function normalizeLessons() {
     db.settings ||= {};
@@ -75,10 +77,10 @@
   function refresh() {
     normalizeLessons();
     const status = $('scanNetworkStatus');
-    if (status) status.textContent = (navigator.onLine ? 'En ligne' : 'Hors ligne') + ' · v69';
+    if (status) status.textContent = (navigator.onLine ? 'En ligne' : 'Hors ligne') + (appVersion ? ' · ' + appVersion : '');
     const context = $('homeActiveContext');
     if (context) context.textContent = 'Les résultats restent enregistrés sur cet iPad. Le ✅ indique un fichier HTML téléchargé et à jour.';
-    $('homeReturn')?.classList.toggle('hidden', currentPage === 'home');
+    if (currentPage === 'home') renderHome();
     if (currentPage === 'workflow') renderWorkflow();
     if (currentPage === 'backups') renderBackups();
     if (currentPage === 'scan') renderDestination();
@@ -88,7 +90,7 @@
         classId=group.id;lessonId=exercise.lessonId;
         const box=$(currentPage==='training-results'?'trainingResultContext':'examResultContext');
         if(box&&currentPage!=='group') { box.style.cssText=classStyle(group); box.innerHTML=header(group.name+' · '+dayLabel(exercise.lessonDate),exercise.label)+
-          '<div class="flow-actions"><button type="button" data-action="return-lesson">← Séance et exercices</button><button type="button" data-action="edit-exercise">Corriger les résultats</button>'+
+          '<div class="flow-actions"><button type="button" data-action="edit-exercise">Corriger les résultats</button>'+
           '<button type="button" class="flow-scan" data-action="scan-exercise" data-id="'+html(exercise.id)+'" '+(exercise.status==='locked'?'disabled':'')+'>📷 Scanner cet exercice</button>'+
           '<button type="button" class="flow-primary" data-action="save-current-lesson">💾 Sauvegarder la séance en HTML</button>'+
           (exercise.type==='exam500'?'<button type="button" data-action="bareme">⚙️ Barème 3 × 500</button>':'')+
@@ -99,13 +101,150 @@
         }
       }
     }
+    renderCrumbs();
+    renderClassBar();
   }
   function goFlow(nextMode, nextView='classes') {
     mode = nextMode; view = nextView; target = null;
     showPage(nextMode === 'backups' ? 'backups' : 'workflow');
   }
-  function header(title, subtitle, backAction) {
-    return '<div class="workspace-title flow-heading">' + (backAction ? '<button type="button" data-action="'+backAction+'">← Retour</button>' : '') + '<div><h2>'+html(title)+'</h2><p>'+html(subtitle)+'</p></div></div>';
+  function header(title, subtitle) {
+    return '<div class="workspace-title flow-heading"><div><h2>'+html(title)+'</h2><p>'+html(subtitle)+'</p></div></div>';
+  }
+  const shortDay = value => value ? new Date(value + 'T12:00:00').toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'}) : 'Sans date';
+  const lessonName = lesson => shortDay(lesson.date) + ' · ' + lesson.label;
+  // Navigation memory stays outside db: db.settings is part of the HTML backup fingerprint.
+  function remember(group, lesson, exercise) {
+    try { localStorage.setItem(LAST_VISIT_KEY, JSON.stringify({groupId:group?.id || null, lessonId:lesson?.id || exercise?.lessonId || null, exerciseId:exercise?.id || null})); } catch {}
+  }
+  function lastVisit() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LAST_VISIT_KEY) || 'null'); } catch {}
+    const group = groupById(saved?.groupId);
+    if (!group) return null;
+    const lesson = lessons(group).find(l => String(l.id) === String(saved.lessonId)) || null;
+    const exercise = group.sessions.find(e => String(e.id) === String(saved.exerciseId)) || null;
+    return {group, lesson, exercise};
+  }
+  const todayLessonOf = group => lessons(group).find(l => l.date === today());
+  function openLesson(groupId, id) {
+    target = null; mode = 'classes'; classId = groupId; lessonId = id; view = 'exercises';
+    remember(chosenGroup(), chosenLesson());
+    showPage('workflow');
+  }
+  function openClass(groupId) {
+    target = null; mode = 'classes'; classId = groupId; view = 'lessons';
+    remember(chosenGroup());
+    showPage('workflow');
+  }
+  // One tap on a class pill: its latest lesson, or its lesson list when it has none.
+  function switchClass(groupId) {
+    const latest = lessons(groupById(groupId))[0];
+    if (latest) openLesson(groupId, latest.id); else openClass(groupId);
+  }
+  function openTodayLesson(groupId) {
+    const group = groupById(groupId);
+    if (!group) return;
+    const lesson = todayLessonOf(group);
+    if (lesson) { openLesson(group.id, lesson.id); return; }
+    target = null; mode = 'classes'; classId = group.id;
+    createLesson();
+  }
+  function resume() {
+    const last = lastVisit();
+    if (!last) { goFlow('classes'); return; }
+    classId = last.group.id;
+    if (last.exercise) { lessonId = last.exercise.lessonId; openResults(last.exercise.id); return; }
+    if (last.lesson) openLesson(last.group.id, last.lesson.id); else openClass(last.group.id);
+  }
+  function exerciseStats(group, exercise) {
+    const students = exercise.students || [];
+    const count = (n, one, many) => n + ' ' + (n > 1 ? many : one);
+    if (exercise.type === 'laserrun') {
+      const done = students.filter(s => s.laserRun);
+      return count(done.length, 'scanné', 'scannés') + ' · ' + count(done.filter(s => window.scoreLaserRun?.(s)?.total20 != null).length, 'note /20 complète', 'notes /20 complètes');
+    }
+    if (exercise.type === 'exam500') {
+      const done = students.filter(s => s.exam500?.races?.length);
+      return count(done.length, 'scanné', 'scannés') + ' · ' + count(done.filter(s => window.score500?.(s)?.total20 != null).length, 'note /20 complète', 'notes /20 complètes');
+    }
+    if (exercise.type === 'training') {
+      return count((db.trainingScans || []).filter(r => String(r.groupId) === String(group.id) && String(r.sessionId) === String(exercise.id)).length, 'résultat', 'résultats');
+    }
+    if (students.length) {
+      return count(students.length, 'élève', 'élèves') + ' · ' + count(students.filter(s => s.races?.[1] && s.races?.[2]).length, 'relevé complet', 'relevés complets');
+    }
+    return 'Aucun résultat pour l’instant';
+  }
+  // Context of the current screen: class, lesson and exercise when known.
+  function context() {
+    if (currentPage === 'workflow') {
+      const group = view === 'classes' ? null : chosenGroup();
+      return {group, lesson:group && view === 'exercises' ? chosenLesson() : null, exercise:null};
+    }
+    if (['scan','results','training-results','group'].includes(currentPage)) {
+      const {group, exercise} = activePair();
+      if (!group || !exercise) return {};
+      return {group, lesson:lessons(group).find(l => String(l.id) === String(exercise.lessonId || exercise.id)) || null, exercise};
+    }
+    return {};
+  }
+  function renderCrumbs() {
+    const box = $('flowCrumbs');
+    if (!box) return;
+    if (currentPage === 'home') { box.innerHTML = ''; return; }
+    const items = [{label:'Accueil', action:'crumb-home'}];
+    if (currentPage === 'backups') items.push({label:'Sauvegarder'});
+    else {
+      const {group, lesson, exercise} = context();
+      if (!group) items.push({label:'Mes classes'});
+      else {
+        items.push({label:group.name, action:'open-class', id:group.id});
+        if (lesson) items.push({label:lessonName(lesson), action:'crumb-lesson', group:group.id, id:lesson.id});
+        if (exercise) items.push({label:exercise.label, action:currentPage === 'results' || currentPage === 'training-results' ? '' : 'exercise-results', id:exercise.id});
+        const page = {scan:'Scanner', group:'Corriger'}[currentPage];
+        if (page) items.push({label:page});
+      }
+    }
+    const last = items.length - 1;
+    box.innerHTML = items.map((item, index) => '<li>' + (item.action && index < last
+      ? '<button type="button" data-action="'+item.action+'"'+(item.id ? ' data-id="'+html(item.id)+'"' : '')+(item.group ? ' data-group="'+html(item.group)+'"' : '')+'>'+html(item.label)+'</button>'
+      : '<span aria-current="page">'+html(item.label)+'</span>') + '</li>').join('');
+  }
+  function renderClassBar() {
+    const box = $('flowClassBar');
+    if (!box) return;
+    const {group, lesson} = context();
+    const groups = db.groups || [];
+    if (!group || groups.length === 0) { box.innerHTML = ''; box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    let arrows = '';
+    if (lesson) {
+      const list = lessons(group), index = list.findIndex(l => String(l.id) === String(lesson.id));
+      const older = list[index + 1], newer = list[index - 1];
+      const arrow = (l, text) => l
+        ? '<button type="button" data-action="crumb-lesson" data-group="'+html(group.id)+'" data-id="'+html(l.id)+'">'+text+'</button>'
+        : '<button type="button" disabled>'+text+'</button>';
+      arrows = '<div class="lesson-steps" aria-label="Changer de séance">' +
+        arrow(older, '‹ ' + (older ? html(lessonName(older)) : 'Séance précédente')) +
+        arrow(newer, (newer ? html(lessonName(newer)) : 'Séance suivante') + ' ›') + '</div>';
+    }
+    box.innerHTML = '<div class="class-pills" aria-label="Changer de classe">' + groups.map(g =>
+      '<button type="button" class="class-pill'+(String(g.id) === String(group.id) ? ' active' : '')+'" style="'+classStyle(g)+'" data-action="switch-class" data-id="'+html(g.id)+'"'+(String(g.id) === String(group.id) ? ' aria-current="true"' : '')+'>'+html(g.name)+'</button>').join('') +
+      '</div>' + arrows;
+  }
+  function renderHome() {
+    const box = $('homeResume');
+    if (!box) return;
+    const last = lastVisit(), groups = db.groups || [];
+    const where = last ? [last.group.name, last.lesson || last.exercise ? lessonName(last.lesson || {date:last.exercise.lessonDate, label:last.exercise.lessonLabel}) : '', last.exercise?.label || ''].filter(Boolean).join(' · ') : '';
+    box.innerHTML = (last
+      ? '<button type="button" class="resume-card" style="'+classStyle(last.group)+'" data-action="resume"><span class="home-card-step">REPRENDRE</span><strong>'+html(where)+'</strong><b>'+(last.exercise ? 'Revenir aux résultats →' : 'Revenir à la séance →')+'</b></button>'
+      : '') +
+      (groups.length
+        ? '<div class="today-lessons"><strong>📅 Séance du jour</strong><div class="class-pills">' + groups.map(g =>
+            '<button type="button" class="class-pill" style="'+classStyle(g)+'" data-action="today-lesson" data-id="'+html(g.id)+'">'+html(g.name)+(todayLessonOf(g) ? ' · ouvrir' : ' · créer')+'</button>').join('') + '</div></div>'
+        : '');
   }
   function renderWorkflow() {
     const box = $('workflowContent');
@@ -113,8 +252,8 @@
     box.style.cssText = view==='classes' ? '' : classStyle(chosenGroup());
     if (view === 'classes') {
       const groups = db.groups || [];
-      box.innerHTML = header(mode === 'results' ? 'Résultats · choisir une classe' : 'Mes classes', 'Une classe, ses séances, puis ses exercices.') +
-        (mode === 'classes' ? '<button type="button" class="flow-primary" data-action="new-class">+ Créer une classe</button>' : '') +
+      box.innerHTML = header('Mes classes', 'Une classe, ses séances, puis ses exercices : scanner, consulter et sauvegarder.') +
+        '<button type="button" class="flow-primary" data-action="new-class">+ Créer une classe</button>' +
         '<div class="flow-grid">' + groups.map(g => '<button type="button" class="flow-card" style="'+classStyle(g)+'" data-action="open-class" data-id="'+html(g.id)+'"><strong>'+html(g.name)+'</strong><span>'+lessons(g).length+' séance(s)</span><small>'+classBadge(g)+'</small></button>').join('') + '</div>' +
         (!groups.length ? '<div class="card empty">Aucune classe enregistrée. Crée ta première classe depuis « Mes classes ».</div>' : '');
       return;
@@ -122,20 +261,24 @@
     const group = chosenGroup();
     if (!group) { view='classes'; renderWorkflow(); return; }
     if (view === 'lessons') {
-      box.innerHTML = header(group.name, mode === 'results' ? 'Choisis la séance dont tu veux consulter les résultats.' : 'Crée la séance du jour ou reprends une séance existante.', 'class-list') +
-        (mode === 'classes' ? '<div class="flow-actions"><button type="button" class="flow-primary" data-action="new-lesson">+ Séance du jour</button><button type="button" data-action="rename-class">Renommer la classe</button></div>' : '') +
+      box.innerHTML = header(group.name, 'Ouvre la séance du jour ou reprends une séance existante.') +
+        '<div class="flow-actions">' + (todayLessonOf(group)
+          ? '<button type="button" class="flow-primary" data-action="today-lesson" data-id="'+html(group.id)+'">📅 Ouvrir la séance du jour</button><button type="button" data-action="new-lesson">+ Nouvelle séance</button>'
+          : '<button type="button" class="flow-primary" data-action="new-lesson">+ Séance du jour</button>') +
+        '<button type="button" data-action="rename-class">Renommer la classe</button></div>' +
         '<div class="flow-grid">'+lessons(group).map(l => '<button type="button" class="flow-card" data-action="open-lesson" data-id="'+html(l.id)+'"><strong>'+html(dayLabel(l.date))+'</strong><span>'+html(l.label)+'</span><span>'+l.exercises.length+' exercice(s)</span><small>'+badge(group,l)+'</small></button>').join('')+'</div>'+
         (!lessons(group).length ? '<div class="card empty">Aucune séance pour cette classe.</div>' : '');
       return;
     }
     const lesson = chosenLesson();
     if (!lesson) { view='lessons'; renderWorkflow(); return; }
-    box.innerHTML = header(group.name+' · '+dayLabel(lesson.date), lesson.label+' · '+badge(group,lesson), 'lesson-list') +
-      (mode === 'classes' ? '<button type="button" class="flow-primary" data-action="new-exercise">+ Ajouter un exercice</button>' : '') +
+    box.innerHTML = header(group.name+' · '+dayLabel(lesson.date), lesson.label+' · '+badge(group,lesson)) +
+      '<button type="button" class="flow-primary" data-action="new-exercise">+ Ajouter un exercice</button>' +
       '<div class="flow-actions"><button type="button" class="flow-primary" data-action="save-current-lesson">💾 Sauvegarder la séance en HTML</button><button type="button" class="flow-danger" data-action="delete-lesson">Supprimer la séance</button></div>'+
-      '<div class="flow-grid">'+lesson.exercises.map(e => '<div class="flow-card exercise-card"><strong>'+html(e.label)+'</strong><span>'+protocol(e.type)+'</span><div class="flow-actions">'+
-        '<button type="button" class="flow-scan" data-action="scan-exercise" data-id="'+html(e.id)+'" '+(e.status==='locked'?'disabled':'')+'>📷 Scanner ici</button>' +
-        '<button type="button" data-action="exercise-results" data-id="'+html(e.id)+'">Résultats</button></div>'+(e.status==='locked'?'<small>🔒 Épreuve verrouillée</small>':'')+'</div>').join('')+'</div>';
+      // The whole card opens the results; the scan button keeps its own action.
+      '<div class="flow-grid">'+lesson.exercises.map(e => '<div class="flow-card exercise-card" role="button" tabindex="0" data-action="exercise-results" data-id="'+html(e.id)+'" aria-label="Résultats de '+html(e.label)+'"><strong>'+html(e.label)+'</strong><span>'+protocol(e.type)+'</span><span class="exercise-stats">'+html(exerciseStats(group,e))+'</span>'+
+        '<div class="flow-actions"><button type="button" class="flow-scan" data-action="scan-exercise" data-id="'+html(e.id)+'" '+(e.status==='locked'?'disabled':'')+'>📷 Scanner ici</button></div>'+
+        (e.status==='locked'?'<small>🔒 Épreuve verrouillée</small>':'')+'<b class="exercise-open">Voir les résultats →</b></div>').join('')+'</div>';
   }
   function quickScan() {
     if(['results','training-results','group','scan'].includes(currentPage)) {
@@ -173,7 +316,9 @@
     const group = chosenGroup();
     const exercise = group?.sessions?.find(e => String(e.id)===String(id));
     if (!group || !exercise) return null;
-    db.activeGroupId = group.id; db.activeSessionId = exercise.id; filter='ALL'; save(); render();
+    db.activeGroupId = group.id; db.activeSessionId = exercise.id; filter='ALL'; save();
+    remember(group, null, exercise);
+    render();
     return exercise;
   }
   function openScan(id) {
@@ -198,7 +343,7 @@
     const {group, exercise} = activePair();
     if (!group || !exercise) return;
     $('scanDestination').innerHTML = header(group.name+' · '+dayLabel(exercise.lessonDate), 'Exercice : '+exercise.label+' · '+protocol(exercise.type))+
-      '<div class="flow-actions"><button type="button" data-action="finish-scan">Terminer les scans</button><button type="button" data-action="new-exercise">+ Ajouter un exercice à cette séance</button><button type="button" data-action="change-destination">Changer de classe / séance</button></div>'+
+      '<div class="flow-actions"><button type="button" data-action="finish-scan">Terminer les scans</button><button type="button" data-action="new-exercise">+ Ajouter un exercice à cette séance</button></div>'+
       '<p class="flow-note">Enregistrement automatique sur cet iPad après chaque scan. Le téléchargement HTML se fait depuis « Sauvegarder ».</p>';
     // These older banners say “évaluation”; the explicit destination above replaces them.
     $('activeContextBanner')?.classList.add('hidden');
@@ -404,14 +549,19 @@
     const a=button.dataset.action;
     if(a==='quick-scan')quickScan();
     else if(a==='new-class')createClass();
-    else if(a==='open-class'){classId=button.dataset.id;view='lessons';refresh();}
-    else if(a==='open-lesson'){lessonId=button.dataset.id;view='exercises';refresh();}
+    else if(a==='open-class')openClass(button.dataset.id);
+    else if(a==='open-lesson')openLesson(classId,button.dataset.id);
+    else if(a==='crumb-lesson')openLesson(button.dataset.group,button.dataset.id);
+    else if(a==='crumb-home'){target=null;showPage('home');}
+    else if(a==='switch-class')switchClass(button.dataset.id);
+    else if(a==='today-lesson')openTodayLesson(button.dataset.id);
+    else if(a==='resume')resume();
     else if(a==='class-list'){view='classes';refresh();}
     else if(a==='lesson-list'){view='lessons';refresh();}
     else if(a==='new-lesson')createLesson();
     else if(a==='new-exercise')addExercise();
     else if(a==='rename-class')renameClass();
-    else if(a==='return-lesson'){mode='results';view='exercises';showPage('workflow');}
+    else if(a==='return-lesson')openLesson(classId,lessonId);
     else if(a==='save-current-lesson')exportHTML('lesson',classId,lessonId);
     else if(a==='delete-lesson')deleteLesson();
     else if(a==='edit-exercise'){showPage('group');render();}
@@ -419,7 +569,7 @@
     else if(a==='bareme-laserrun')window.DFLaserRun?.openBareme();
     else if(a==='scan-exercise')openScan(button.dataset.id);
     else if(a==='exercise-results')openResults(button.dataset.id);
-    else if(a==='finish-scan'){target=null;mode='classes';view='exercises';showPage('workflow');}
+    else if(a==='finish-scan')openLesson(classId,lessonId);
     else if(a==='change-destination')goFlow('classes');
     else if(a==='export-class')exportHTML('class',button.dataset.id);
     else if(a==='export-lesson')exportHTML('lesson',button.dataset.group,button.dataset.id);
@@ -443,8 +593,11 @@
       if(event.target.closest?.('#camera')&&!targetReady()){event.preventDefault();event.stopImmediatePropagation();goFlow('classes');}
     },true);
     document.addEventListener('click',action);
+    // Exercise cards are focusable buttons: Enter / Space open their results.
+    document.addEventListener('keydown',event=>{
+      if((event.key==='Enter'||event.key===' ')&&event.target.matches?.('[role="button"][data-action]')){event.preventDefault();event.target.click();}
+    });
     document.querySelectorAll('[data-flow]').forEach(button=>button.onclick=()=>goFlow(button.dataset.flow));
-    $('homeReturn').onclick=()=>{target=null;showPage('home');};
     if($('recoveryBackup'))$('localRecoverySlot')?.appendChild($('recoveryBackup'));
     $('backup').onclick=()=>exportHTML('all');
     $('restore').onchange=async event=>{const file=event.target.files?.[0];if(file)await importHTML(file);event.target.value='';};

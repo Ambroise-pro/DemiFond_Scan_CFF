@@ -306,9 +306,12 @@
                 <p>
                   Dans
                   <strong>
-                    Résultats
+                    Mes classes
                   </strong>,
-                  tu peux consulter
+                  touche la carte d’un exercice pour ouvrir ses résultats.
+                  Le chemin en haut de l’écran et les pastilles de classes
+                  permettent de changer de séance ou de classe.
+                  Tu peux y consulter
                   l’AFL1, les temps,
                   la performance,
                   la régularité
