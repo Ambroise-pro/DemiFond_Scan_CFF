@@ -545,8 +545,6 @@
 
     const b = globalOnly ? (db.settings.exam500Bareme || clone(DEFAULT_BAREME)) : settings();
 
-    const rowsToText = rows => rows.map(r => r.join(" = ")).join("\n");
-
     d.innerHTML = `
       <div style="min-width:min(920px,94vw);max-height:86vh;overflow:auto;padding:8px">
         <h2>Barème 3 × 500</h2>
@@ -587,14 +585,13 @@
           <small id="b500SelectedLevel" aria-live="polite">Barème actuel affiché (personnalisable).</small>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
-          <label><b>Performance filles /6</b><textarea id="b500Girls" style="width:100%;min-height:280px">${rowsToText(b.girls)}</textarea></label>
-          <label><b>Performance garçons /6</b><textarea id="b500Boys" style="width:100%;min-height:280px">${rowsToText(b.boys)}</textarea></label>
-          <label><b>Écart annonce /2</b><textarea id="b500Gap" style="width:100%;min-height:280px">${rowsToText(b.gap)}</textarea></label>
-          <label><b>Indice efficacité /6</b><textarea id="b500Eff" style="width:100%;min-height:280px">${rowsToText(b.efficiency)}</textarea></label>
-        </div>
+        <p style="font-size:13px;color:#64748b">Une ligne par seuil : les points et la valeur à partir de laquelle ils sont attribués. Temps des 3 × 500 au format 5:30, écarts en secondes.</p>
 
-        <p style="font-size:13px;color:#64748b">Format d'une ligne : <b>temps = points</b> pour la performance, ou <b>secondes = points</b> pour les écarts.</p>
+        <div class="gt-sections">
+          <section><b>Performance /6 · total des 3 × 500</b><div id="b500Perf"></div></section>
+          <section><b>Écart annonce /2</b><div id="b500Gap"></div></section>
+          <section><b>Indice efficacité /6</b><div id="b500Eff"></div></section>
+        </div>
 
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
           <button id="b500Reset" type="button">Réinitialiser</button>
@@ -604,17 +601,9 @@
       </div>
     `;
 
-    const parseRows = (text, timeMode) =>
-      String(text||"")
-        .split(/\n+/)
-        .map(line => line.trim())
-        .filter(Boolean)
-        .map(line => {
-          const parts = line.split("=").map(x=>x.trim());
-          if (parts.length !== 2) return null;
-          return [timeMode ? parts[0] : Number(parts[0]), Number(parts[1])];
-        })
-        .filter(Boolean);
+    const perfTable = DFGridTable.mount(d.querySelector("#b500Perf"), {split:true, kind:"duration", unit:"total", placeholder:"15:00", girls:b.girls, boys:b.boys});
+    const gapTable = DFGridTable.mount(d.querySelector("#b500Gap"), {kind:"number", unit:"secondes", rows:b.gap});
+    const effTable = DFGridTable.mount(d.querySelector("#b500Eff"), {kind:"number", unit:"secondes", rows:b.efficiency});
 
     for (const [id,level,label] of [
       ["b500PresetSeconde","seconde","Seconde"],
@@ -622,8 +611,7 @@
     ]) {
       d.querySelector("#" + id).onclick = () => {
         const preset = performancePreset500(level,b);
-        d.querySelector("#b500Girls").value = rowsToText(preset.girls);
-        d.querySelector("#b500Boys").value = rowsToText(preset.boys);
+        perfTable.set({girls:preset.girls, boys:preset.boys});
         d.querySelector("#b500SelectedLevel").textContent =
           "Barème " + label + " chargé. Clique sur Enregistrer pour l'appliquer.";
       };
@@ -673,17 +661,23 @@
           ? sessionBefore.students.length
           : 0;
 
-      const next = {
-        girls: parseRows(d.querySelector("#b500Girls").value, true),
-        boys: parseRows(d.querySelector("#b500Boys").value, true),
-        gap: parseRows(d.querySelector("#b500Gap").value, false),
-        efficiency: parseRows(d.querySelector("#b500Eff").value, false)
-      };
+      const perf = perfTable.read();
+      const gap = gapTable.read();
+      const eff = effTable.read();
 
-      if (!next.girls.length || !next.boys.length || !next.gap.length || !next.efficiency.length) {
-        alert("Le barème contient une zone vide ou mal formatée.");
-        return;
+      for (const [label, grid] of [["Performance", perf], ["Écart annonce", gap], ["Indice efficacité", eff]]) {
+        if (grid.error) {
+          alert(label + " : " + grid.error + ".");
+          return;
+        }
       }
+
+      const next = {
+        girls: perf.girls,
+        boys: perf.boys,
+        gap: gap.rows,
+        efficiency: eff.rows
+      };
 
       db.settings.exam500Bareme =
         clone(next);
