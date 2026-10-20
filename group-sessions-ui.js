@@ -373,6 +373,16 @@
     ) {
       window.renderLaserRunView();
     }
+
+    if (
+      page === "results" &&
+      session.type === "custom" &&
+      typeof window
+        .renderCustomView ===
+        "function"
+    ) {
+      window.renderCustomView();
+    }
   }
 
   function createNewSession() {

@@ -1786,6 +1786,14 @@ function init() {
             ) {
               window.renderLaserRunView();
             }
+
+            if (
+              page === 'results' &&
+              activeSession()?.type === 'custom' &&
+              typeof window.renderCustomView === 'function'
+            ) {
+              window.renderCustomView();
+            }
           };
       }
     );

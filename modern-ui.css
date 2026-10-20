@@ -1267,13 +1267,11 @@ nav{align-items:center}
 .lesson-steps button{min-height:44px;font-weight:700}
 .lesson-steps button:disabled{opacity:.45}
 
-.home-resume{display:grid;gap:14px;margin-bottom:18px}
+.home-resume{display:grid;gap:14px;margin-bottom:10px}
 .home-resume:empty{display:none}
-.resume-card{display:flex;flex-direction:column;align-items:center;gap:8px;padding:22px;border-radius:22px;border:2px solid var(--class-color,#2563eb);border-left-width:8px;background:color-mix(in srgb,var(--class-color,#2563eb) 7%,white);text-align:center;white-space:normal}
-.resume-card strong{font-size:22px;color:var(--class-color,#2563eb);overflow-wrap:anywhere}
-.resume-card b{color:#254f7d}
-.today-lessons{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;padding:16px;border:1px solid #dbe3ee;border-radius:18px;background:#fff}
-.today-lessons .class-pills{justify-content:center}
+.resume-link{justify-self:start;min-height:40px;padding:6px 4px;border:0;background:none;box-shadow:none;color:#475569;font-weight:600;font-size:15px;text-align:left;white-space:normal}
+.resume-link span{color:#64748b;font-weight:400}
+.resume-link:hover{color:#1d4ed8;text-decoration:underline}
 
 .exercise-card{cursor:pointer}
 .exercise-card:focus-visible{outline:3px solid var(--class-color,#2563eb);outline-offset:3px}
@@ -1307,3 +1305,29 @@ body[data-workspace-page] header.scan-app-header>.app-brand{display:flex!importa
 header.scan-app-header .app-brand h1{margin:0;font-size:24px;line-height:1.2}
 header.scan-app-header .app-brand p{margin:0;font-size:15px}
 @media(max-width:620px){header.scan-app-header .app-brand h1{font-size:20px}header.scan-app-header .app-brand p{font-size:13px}}
+
+/* Barèmes personnalisés */
+.bareme-choices .bareme-create{border-style:dashed;background:#f8fafc}
+.cb-editor{display:grid;gap:14px;width:min(920px,92vw);max-height:84vh;overflow:auto;padding:8px}
+.cb-editor h2{margin:0}
+.cb-block{display:grid;gap:8px;padding:14px;border:1px solid #d8e1f3;border-radius:14px}
+.cb-block input,.cb-block select,.cb-block textarea{width:100%}
+.cb-hint{margin:0;color:#64748b;font-size:14px;line-height:1.45}
+.cb-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
+.cb-row label{display:grid;gap:4px}
+.cb-row .cb-max{width:90px}
+.cb-check{display:flex!important;align-items:center;gap:8px}
+.cb-check input{width:auto!important}
+.cb-video{width:100%;max-height:300px;border-radius:12px;background:#000}
+.cb-table{overflow:auto}
+.cb-table table{min-width:0;width:100%}
+.cb-criterion{display:grid;gap:8px;padding:12px;border-radius:12px;background:#f8fafc}
+.cb-criterion small{color:#64748b}
+.cb-grids{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.cb-grids label{display:grid;gap:4px;font-weight:700}
+.cb-grids textarea{min-height:170px;font-family:ui-monospace,Menlo,monospace}
+.cb-total{margin:0;font-size:16px}
+.cb-actions{justify-content:flex-end}
+.cb-grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.cb-grid4 label{display:grid;gap:4px}
+#cbPaste textarea{min-height:90px}
