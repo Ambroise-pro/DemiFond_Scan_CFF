@@ -1293,3 +1293,17 @@ nav{align-items:center}
 .class-tab.active{min-height:52px;padding-top:14px;background:var(--class-color,#2563eb);color:#fff}
 .class-tab-add{--class-color:#64748b;padding-inline:16px;font-size:20px;line-height:1}
 .flow-class-bar{justify-content:flex-end}
+
+/* Barèmes : une seule carte à l'accueil */
+#homeBareme500Btn,#homeBaremeLaserRunBtn{display:none!important}
+.bareme-choices{display:grid;gap:12px}
+.bareme-choices button{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-height:64px;padding:16px;text-align:left;white-space:normal;border-radius:16px}
+.bareme-choices strong{font-size:20px}
+.bareme-choices span{color:#526276;font-weight:400}
+
+/* Titre de l'app sur la même ligne que « Mode d'emploi » et la version */
+body[data-workspace-page] header.scan-app-header{justify-content:space-between;align-items:center}
+body[data-workspace-page] header.scan-app-header>.app-brand{display:flex!important;align-items:baseline;flex-wrap:wrap;gap:4px 14px;min-width:0}
+header.scan-app-header .app-brand h1{margin:0;font-size:24px;line-height:1.2}
+header.scan-app-header .app-brand p{margin:0;font-size:15px}
+@media(max-width:620px){header.scan-app-header .app-brand h1{font-size:20px}header.scan-app-header .app-brand p{font-size:13px}}

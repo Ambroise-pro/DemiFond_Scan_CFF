@@ -366,6 +366,16 @@
   function exerciseFields() {
     return '<label>Nom de l’exercice<input name="exercise" value="Exercice 1" required maxlength="100"></label><p class="flow-note">Le type d’exercice est reconnu automatiquement au premier QR : entraînement, 2 × 800 ou 3 × 500.</p>';
   }
+  // One home card gathers every grading scale; each module keeps its own (hidden) home button.
+  function openBaremes() {
+    const scales = [['homeBareme500Btn','3 × 500','Références Seconde / Première, indice, écart d’annonce.'],['homeBaremeLaserRunBtn','Laser Run','Temps de course filles / garçons, réussite au tir.']]
+      .filter(([id]) => $(id));
+    dialogForm('Barèmes', '<div class="bareme-choices">' + scales.map(([id,name,hint]) =>
+      '<button type="button" data-bareme="'+id+'"><strong>⚙️ '+html(name)+'</strong><span>'+html(hint)+'</span></button>').join('') + '</div>', () => {});
+    const dialog = $('classFlowDialog');
+    dialog.querySelector('[type="submit"]')?.remove();
+    dialog.querySelectorAll('[data-bareme]').forEach(button => button.onclick = () => { dialog.close(); $(button.dataset.bareme)?.click(); });
+  }
   function createClass() {
     dialogForm('Créer une classe','<label>Classe<input name="name" placeholder="Ex. 1E, 6B…" required maxlength="80"></label>',data=>{
       const name=String(data.get('name')||'').trim(); if(!name)return false;
@@ -561,6 +571,7 @@
     else if(a==='switch-class')switchClass(button.dataset.id);
     else if(a==='today-lesson')openTodayLesson(button.dataset.id);
     else if(a==='resume')resume();
+    else if(a==='baremes')openBaremes();
     else if(a==='class-list'){view='classes';refresh();}
     else if(a==='lesson-list'){view='lessons';refresh();}
     else if(a==='new-lesson')createLesson();
