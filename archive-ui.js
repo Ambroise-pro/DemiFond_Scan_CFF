@@ -625,6 +625,10 @@
       return buildExam500Report(group, session, payload);
     }
 
+    if (session?.type === "laserrun" && window.DFLaserRun) {
+      return window.DFLaserRun.buildArchiveReport(group, session, payload, statusLabel(session.status));
+    }
+
     const rows = sortedStudents(session).map(studentRow);
 
     const complete = rows.filter(function(row) {

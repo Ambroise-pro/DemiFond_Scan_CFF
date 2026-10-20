@@ -363,6 +363,16 @@
     ) {
       window.renderExam500View();
     }
+
+    if (
+      page === "results" &&
+      session.type === "laserrun" &&
+      typeof window
+        .renderLaserRunView ===
+        "function"
+    ) {
+      window.renderLaserRunView();
+    }
   }
 
   function createNewSession() {

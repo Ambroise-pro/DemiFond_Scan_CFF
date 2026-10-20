@@ -686,7 +686,8 @@
 
     if (
       !session ||
-      session.type === "exam500"
+      session.type === "exam500" ||
+      session.type === "laserrun"
     ) {
       return;
     }
@@ -806,7 +807,7 @@
     function() {
       if (
         typeof activeSession === "function" &&
-        activeSession()?.type === "exam500"
+        ["exam500","laserrun"].includes(activeSession()?.type)
       ) {
         return;
       }
@@ -1386,7 +1387,7 @@
     function() {
       if (
         typeof activeSession === "function" &&
-        activeSession()?.type === "exam500"
+        ["exam500","laserrun"].includes(activeSession()?.type)
       ) {
         return;
       }
