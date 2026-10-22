@@ -1,5 +1,5 @@
 const VERSION =
-  "df-ccf-84";
+  "df-ccf-83";
 
 
 const FILES = [
@@ -55,14 +55,6 @@ const FILES = [
   "/qr-ui.js",
 
   "/jsQR.js",
-
-  "/coeval.html",
-
-  "/coeval.css?v=1",
-
-  "/coeval.js?v=1",
-
-  "/qrcode.js",
 
   "/manifest.webmanifest"
 
