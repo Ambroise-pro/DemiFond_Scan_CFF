@@ -1,5 +1,5 @@
 const VERSION =
-  "df-ccf-82";
+  "df-ccf-83";
 
 
 const FILES = [
@@ -26,11 +26,11 @@ const FILES = [
 
   "/grid-table-ui.js?v=1",
 
-  "/laserrun-ui.js?v=3",
+  "/laserrun-ui.js?v=4",
 
-  "/custom-bareme-ui.js?v=3",
+  "/custom-bareme-ui.js?v=4",
 
-  "/training-qr-ui.js?v=13",
+  "/training-qr-ui.js?v=14",
 
   "/training-edit-ui.js?v=2",
 

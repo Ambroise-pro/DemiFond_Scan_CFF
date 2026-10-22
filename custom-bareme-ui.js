@@ -844,9 +844,19 @@
     return session?.type === "data";
   }
 
-  // Les QR Chrono Carnet d'entraînement gardent leur propre affichage.
+  // Les QR Chrono Carnet d'entraînement gardent leur propre affichage, sauf le Laser Run.
   function isDataPayload(data) {
-    return !!data && typeof data === "object" && !Array.isArray(data) && data.type !== "DF_TRAINING_RESULT";
+    return !!data && typeof data === "object" && !Array.isArray(data) &&
+      (data.type !== "DF_TRAINING_RESULT" || data.tool === "laserrun");
+  }
+
+  // Champs techniques des QR Chrono Carnet, inutiles dans le tableau des données.
+  const TECHNICAL_KEYS = ["type", "v", "tool", "studentId", "resultId", "createdAt", "first", "last", "classroom", "sex"];
+
+  function qrName(data) {
+    const nameKey = roleKey(data, "name");
+    if (nameKey) return String(pick(data, nameKey) ?? "");
+    return [data.first, data.last].filter(Boolean).join(" ");
   }
 
   function roleKey(data, role) {
@@ -861,7 +871,7 @@
       if (!raw) continue;
       const nameKey = roleKey(raw, "name");
       for (const [key] of flatten(raw)) {
-        if (key !== nameKey && !keys.includes(key)) keys.push(key);
+        if (key !== nameKey && !TECHNICAL_KEYS.includes(key) && !keys.includes(key)) keys.push(key);
       }
     }
     return keys;
@@ -869,7 +879,10 @@
 
   function dataCell(student, key) {
     const value = student.qrData?.raw ? pick(student.qrData.raw, key) : undefined;
-    return value == null || value === "" ? "—" : String(value);
+    if (value == null || value === "") return "—";
+    // Durées Chrono Carnet en millisecondes (totalMs, shootMs…) affichées en temps.
+    if (/Ms$/.test(key) && Number.isFinite(Number(value))) return formatValue("duration", Number(value));
+    return String(value);
   }
 
   function handleData(data, session, group) {
@@ -879,14 +892,16 @@
     }
 
     const nameKey = roleKey(data, "name");
-    const sexKey = roleKey(data, "sex");
-    const classKey = roleKey(data, "class");
-    const name = nameKey ? String(pick(data, nameKey) ?? "").trim().replace(/\s+/g, " ") : "";
+    const sexKey = roleKey(data, "sex") || (data.sex != null ? "sex" : null);
+    const classKey = roleKey(data, "class") || (data.classroom != null ? "classroom" : null);
+    const name = qrName(data).trim().replace(/\s+/g, " ");
     const label = name || "Relevé " + (session.students.length + 1);
     const key = normName(label);
 
-    let student = name ? session.students.find(s => sameName(s, key)) : null;
-    const known = name ? (group.students || []).find(s => sameName(s, key)) : null;
+    const id = String(data.studentId || "");
+    const byId = s => id && (String(s.externalId) === id || String(s.id) === id);
+    let student = session.students.find(byId) || (name ? session.students.find(s => sameName(s, key)) : null);
+    const known = (group.students || []).find(byId) || (name ? (group.students || []).find(s => sameName(s, key)) : null);
 
     if (student?.qrData) {
       if (JSON.stringify(student.qrData.raw) === JSON.stringify(data)) {
@@ -903,7 +918,8 @@
     if (!student) {
       student = buildStudent(known
         ? {studentId:known.externalId || known.id, last:known.last, first:known.first, classroom:known.classroom, sex:known.sex}
-        : {studentId:"QR-" + key.replace(/ /g, "-") + (name ? "" : "-" + Date.now()), ...splitName(label), classroom, sex});
+        : {studentId:id || "QR-" + key.replace(/ /g, "-") + (name ? "" : "-" + Date.now()),
+            ...(data.first || data.last ? {first:String(data.first || ""), last:String(data.last || "")} : splitName(label)), classroom, sex});
       session.students.push(student);
     }
     if (sex) student.sex = sex;
@@ -921,7 +937,8 @@
       message.innerHTML =
         "✓ " + esc(String(student.last || "").toUpperCase()) + " " + esc(student.first || "") +
         "<br>Données enregistrées (sans note) · " +
-        flatten(data).filter(([k]) => k !== nameKey).slice(0, 4).map(([k, v]) => esc(k) + " " + esc(v)).join(" · ");
+        flatten(data).filter(([k]) => k !== nameKey && !TECHNICAL_KEYS.includes(k)).slice(0, 4)
+          .map(([k, v]) => esc(k) + " " + esc(/Ms$/.test(k) && Number.isFinite(Number(v)) ? formatValue("duration", Number(v)) : v)).join(" · ");
     }
     toast?.("Données enregistrées");
     if (typeof render === "function") render();

@@ -855,9 +855,11 @@
               JSON.parse(raw);
           } catch {}
 
+          // Les QR Laser Run de Chrono Carnet sont notés par le module Laser Run.
           if (
             data?.type ===
-              "DF_TRAINING_RESULT"
+              "DF_TRAINING_RESULT" &&
+            !window.DFLaserRun?.isPayload(data)
           ) {
             handleTraining(
               data
@@ -902,9 +904,11 @@
             }
           } catch {}
 
+          // Les QR Laser Run de Chrono Carnet sont notés par le module Laser Run.
           if (
             data?.type ===
-              "DF_TRAINING_RESULT"
+              "DF_TRAINING_RESULT" &&
+            !window.DFLaserRun?.isPayload(data)
           ) {
             handleTraining(
               data
