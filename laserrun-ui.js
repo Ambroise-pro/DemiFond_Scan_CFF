@@ -2,8 +2,10 @@
   "use strict";
 
   /*
-   * Laser Run : QR Chrono Carnet
-   * {"nom":"Prénom Nom","tempsTotal":"00:09:12","tempsTir":"01:07.3","efficacite":"68.2%"}
+   * Laser Run : deux QR acceptés
+   * - Chrono Carnet : {"type":"DF_TRAINING_RESULT","tool":"laserrun","studentId":"…","last":"…","first":"…",
+   *   "classroom":"4A","sex":"M","totalMs":37092,"runMs":18335,"shootMs":18757,"hits":15,"attempts":21,…}
+   * - chronomètre Laser Run : {"nom":"Prénom Nom","sexe":"M","tempsTotal":"00:09:12","tempsTir":"01:07.3","efficacite":"68.2%"}
    *
    * Note /20 = performance /6 (temps de course, filles / garçons)
    *          + efficacité au tir /6 (% de réussite)
@@ -61,6 +63,7 @@
       typeof data === "object" &&
       (
         data.type === "DF_LASERRUN_RESULT" ||
+        (data.type === "DF_TRAINING_RESULT" && data.tool === "laserrun") ||
         ("tempsTotal" in data && "efficacite" in data)
       );
   }
@@ -92,6 +95,11 @@
 
   function fmtPts(v) {
     return String(Math.round(Number(v || 0) * 100) / 100).replace(".", ",");
+  }
+
+  // "71,4 % (15/21)" quand le QR donne les tirs réussis / tentés.
+  function tirLabel(run) {
+    return fmtPct(run?.efficiency) + (run?.attempts ? " (" + run.hits + "/" + run.attempts + ")" : "");
   }
 
   function fmtPct(v) {
@@ -374,7 +382,57 @@
      SCAN
   ========================= */
 
+  function readSex(value) {
+    const raw = String(value ?? "").trim().toUpperCase();
+    return ["F","FILLE"].includes(raw) ? "F" :
+      ["M","G","GARCON","GARÇON"].includes(raw) ? "M" :
+      "";
+  }
+
+  // QR Chrono Carnet : identité complète, temps en millisecondes, tirs réussis / tentés.
+  function validateChronoCarnet(data) {
+    const first = String(data.first || "").trim();
+    const last = String(data.last || "").trim();
+    if (!first && !last) {
+      return {ok:false, message:"QR Laser Run : nom de l'élève manquant."};
+    }
+
+    const totalMs = Number(data.totalMs);
+    if (!Number.isFinite(totalMs) || totalMs <= 0) {
+      return {ok:false, message:"QR Laser Run : temps total invalide."};
+    }
+
+    const shootMs = Number.isFinite(Number(data.shootMs)) && Number(data.shootMs) >= 0 ? Number(data.shootMs) : null;
+    const hits = Number(data.hits), attempts = Number(data.attempts);
+    if (!Number.isFinite(hits) || !Number.isFinite(attempts) || attempts <= 0 || hits < 0 || hits > attempts) {
+      return {ok:false, message:"QR Laser Run : tirs réussis / tentés invalides."};
+    }
+
+    return {
+      ok:true,
+      data:{
+        studentId: String(data.studentId || ""),
+        first,
+        last,
+        name: (first + " " + last).trim(),
+        sex: readSex(data.sex),
+        classroom: String(data.classroom || "").trim().toUpperCase(),
+        totalMs,
+        shootMs,
+        efficiency: Math.round(hits / attempts * 1000) / 10,
+        hits,
+        attempts,
+        runMs: Number.isFinite(Number(data.runMs)) ? Number(data.runMs) : null,
+        laps: Number.isFinite(Number(data.laps)) ? Number(data.laps) : null,
+        lapM: Number.isFinite(Number(data.lapM)) ? Number(data.lapM) : null,
+        resultId: String(data.resultId || data.createdAt || "")
+      }
+    };
+  }
+
   function validatePayload(data) {
+    if (data.type === "DF_TRAINING_RESULT") return validateChronoCarnet(data);
+
     const name = String(data.nom || "").trim().replace(/\s+/g, " ");
     if (!name) {
       return {ok:false, message:"QR Laser Run : nom de l'élève manquant."};
@@ -399,11 +457,7 @@
       return {ok:false, message:"QR Laser Run : efficacité au tir invalide (0 à 100 %)."};
     }
 
-    const sexRaw = String(data.sexe ?? data.sex ?? "").trim().toUpperCase();
-    const sex =
-      ["F","FILLE"].includes(sexRaw) ? "F" :
-      ["M","G","GARCON","GARÇON"].includes(sexRaw) ? "M" :
-      "";
+    const sex = readSex(data.sexe ?? data.sex);
 
     return {
       ok:true,
@@ -462,16 +516,19 @@
       return true;
     }
 
+    // Chrono Carnet donne l'identifiant de l'élève ; l'autre chronomètre seulement son nom.
     const key = normName(data.name);
-    let student = session.students.find(s => sameName(s, key));
-    const known = (group.students || []).find(s => sameName(s, key));
+    const byId = s => data.studentId && (String(s.externalId) === data.studentId || String(s.id) === data.studentId);
+    let student = session.students.find(byId) || session.students.find(s => sameName(s, key));
+    const known = (group.students || []).find(byId) || (group.students || []).find(s => sameName(s, key));
 
     if (student?.laserRun) {
       const run = student.laserRun;
-      const sameQR =
-        run.totalMs === data.totalMs &&
-        run.shootMs === data.shootMs &&
-        run.efficiency === data.efficiency;
+      const sameQR = data.resultId
+        ? run.resultId === data.resultId
+        : run.totalMs === data.totalMs &&
+          run.shootMs === data.shootMs &&
+          run.efficiency === data.efficiency;
 
       if (sameQR) {
         scanError(String(student.last || "").toUpperCase() + " " + String(student.first || "") + " · QR déjà scanné.");
@@ -496,8 +553,8 @@
             sex: known.sex
           }
         : {
-            studentId: "LR-" + key.replace(/ /g, "-"),
-            ...splitName(data.name),
+            studentId: data.studentId || "LR-" + key.replace(/ /g, "-"),
+            ...(data.studentId ? {first:data.first, last:data.last} : splitName(data.name)),
             classroom: data.classroom,
             sex: data.sex
           };
@@ -513,6 +570,12 @@
       totalMs: data.totalMs,
       shootMs: data.shootMs,
       efficiency: data.efficiency,
+      hits: data.hits ?? null,
+      attempts: data.attempts ?? null,
+      runMs: data.runMs ?? null,
+      laps: data.laps ?? null,
+      lapM: data.lapM ?? null,
+      resultId: data.resultId || "",
       scannedAt: Date.now()
     };
 
@@ -536,7 +599,7 @@
       message.innerHTML =
         "✓ " + esc(String(student.last || "").toUpperCase()) + " " + esc(student.first || "") +
         "<br>" + (student.classroom ? esc(student.classroom) + " · " : "") +
-        "Laser Run · " + timeLabel(data.totalMs) + " · tir " + fmtPct(data.efficiency) +
+        "Laser Run · " + timeLabel(data.totalMs) + " · tir " + tirLabel(data) +
         (student.sex ? "" : "<br>Sexe inconnu : à compléter dans la fiche pour la note de performance.");
     }
 
@@ -709,7 +772,7 @@
           <td>${esc(student.sex||"—")}</td>
           <td>${sc ? timeLabel(sc.totalMs) : "—"}</td>
           <td>${sc ? timeLabel(sc.shootMs) : "—"}</td>
-          <td>${sc ? fmtPct(sc.efficiency) : "—"}</td>
+          <td>${sc ? tirLabel(student.laserRun) : "—"}</td>
           <td><b>${sc?.afl1 == null ? "—" : fmtPts(sc.afl1) + "/12"}</b></td>
           <td>
             <button type="button" class="student-edit" data-id="${esc(student.id)}">✏️ Corriger</button>
@@ -776,7 +839,7 @@
           <td>${sc ? timeLabel(sc.totalMs) : "—"}</td>
           <td><b>${sc?.perf == null ? "—" : fmtPts(sc.perf)}</b></td>
           <td>${sc ? timeLabel(sc.shootMs) : "—"}</td>
-          <td>${sc ? fmtPct(sc.efficiency) : "—"}</td>
+          <td>${sc ? tirLabel(student.laserRun) : "—"}</td>
           <td><b>${sc ? fmtPts(sc.effPts) : "—"}</b></td>
           ${CRITERIA.map(([field,key,max]) => `
             <td>
@@ -833,7 +896,7 @@
           <td>${sc ? timeLabel(sc.totalMs) : "—"}</td>
           <td>${sc?.perf == null ? "—" : fmtPts(sc.perf)}</td>
           <td>${sc ? timeLabel(sc.shootMs) : "—"}</td>
-          <td>${sc ? fmtPct(sc.efficiency) : "—"}</td>
+          <td>${sc ? tirLabel(student.laserRun) : "—"}</td>
           <td>${sc ? fmtPts(sc.effPts) : "—"}</td>
           ${CRITERIA.map(([,key]) => `<td>${sc?.[key] == null ? "—" : fmtPts(sc[key])}</td>`).join("")}
           <td class="final"><b>${sc?.total20 == null ? "—" : fmtPts(sc.total20)}</b></td>
