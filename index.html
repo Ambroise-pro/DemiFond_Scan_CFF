@@ -42,7 +42,7 @@
 
 <header class="scan-app-header">
   <div class="app-brand"><h1>DemiFond Scan</h1><p>Le carnet du professeur</p></div>
-  <div><span id="scanNetworkStatus" class="network-status">v83</span></div>
+  <div><span id="scanNetworkStatus" class="network-status">v84</span></div>
 </header>
 
 <div id="classTabs" class="class-tabs" role="tablist" aria-label="Classes"></div>
@@ -59,6 +59,7 @@
       <button type="button" class="scan-home-card home-spaces" data-flow="classes"><span class="home-card-step">SCANNER · CONSULTER · ÉVALUER</span><strong>Mes classes</strong><span>Choisir une classe et sa séance, scanner, puis consulter les résultats.</span><b>Ouvrir mes classes →</b></button>
       <button type="button" class="scan-home-card home-backups" data-flow="backups"><span class="home-card-step">TÉLÉCHARGER UN HTML</span><strong>Sauvegarder</strong><span>Toutes les classes, une classe ou une séance.</span><b>Choisir une sauvegarde →</b></button>
       <button type="button" class="scan-home-card home-baremes" data-action="baremes"><span class="home-card-step">PARAMÉTRER LES ÉVALUATIONS</span><strong>⚙️ Barèmes</strong><span>3 × 500, Laser Run, ou ton propre barème créé à partir d’un QR. Accès par code.</span><b>Choisir un barème →</b></button>
+      <a class="scan-home-card home-coeval" href="/coeval.html" style="text-decoration:none;color:inherit"><span class="home-card-step">BAC · À DEUX ÉVALUATEURS</span><strong>🤝 Co-évaluation</strong><span>Musculation CA5 : chacun note de son côté, puis les grilles sont croisées.</span><b>Ouvrir la co-évaluation →</b></a>
     </div>
     <div class="card" style="margin-top:16px;padding:18px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap"><div><strong>📷 Scanner les résultats de Chrono Carnet EPS</strong><p style="margin:6px 0 0">DemiFond Scan fonctionne avec Chrono Carnet EPS : réalisez vos courses dans Chrono Carnet, puis scannez ici les QR codes des résultats.</p></div><a href="https://chrono-carnet-eps.vercel.app/" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 16px;border-radius:12px;background:#172554;color:#fff;font-weight:700;text-decoration:none">Ouvrir Chrono Carnet EPS ↗</a></div>
     <div id="homeActiveContext" class="workspace-context" aria-live="polite"></div>
@@ -481,7 +482,7 @@
             await navigator
               .serviceWorker
               .register(
-                "/offline-worker.js?v=83",
+                "/offline-worker.js?v=84",
                 {
                   updateViaCache:
                     "none"
