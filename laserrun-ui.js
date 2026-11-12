@@ -33,6 +33,40 @@
     ]
   };
 
+  /*
+   * Préréglages de grilles. Temps total = course + 3 séances de tir.
+   * 4e · 15 tours de 111 m (1 665 m) : 3 tours, tir, 3 tours, tir, 3 tours, tir, 3 tours… soit 5 × 3 tours.
+   * Repères : garçon à 6/6 ≈ 12,9 km/h en course + 1 min 45 de tir ; fille à 3/6 ≈ 9,7 km/h + 2 min 45 de tir.
+   */
+  const PRESETS = {
+    numbers: {
+      label: "Fiche Numbers d’origine",
+      ...DEFAULT_BAREME
+    },
+    quatrieme15x111: {
+      label: "4e · 15 tours de 111 m · 3 tirs",
+      girls: [
+        ["5:00",6],["10:30",5.75],["10:45",5.5],["11:05",5.25],["11:20",5],
+        ["11:30",4.75],["11:45",4.5],["12:00",4.25],["12:10",4],["12:25",3.75],
+        ["12:40",3.5],["12:50",3.25],["13:05",3],["13:20",2.75],["13:35",2.5],
+        ["13:50",2.25],["14:05",2],["14:20",1.75],["14:40",1.5],["14:55",1.25],
+        ["15:10",1],["15:30",0.75],["15:50",0.5],["16:10",0.25],["18:30",0]
+      ],
+      boys: [
+        ["5:00",6],["9:30",5.75],["9:45",5.5],["10:00",5.25],["10:15",5],
+        ["10:25",4.75],["10:40",4.5],["10:50",4.25],["11:00",4],["11:10",3.75],
+        ["11:25",3.5],["11:40",3.25],["11:50",3],["12:05",2.75],["12:20",2.5],
+        ["12:30",2.25],["12:45",2],["13:00",1.75],["13:15",1.5],["13:30",1.25],
+        ["13:45",1],["14:05",0.75],["14:20",0.5],["14:40",0.25],["17:00",0]
+      ],
+      // 15 cibles à toucher : 15/21 = 71 % → 5,5 ; 15/30 = 50 % → 3,5.
+      shooting: [
+        [0,0],[20,0.5],[25,1],[30,1.5],[35,2],[40,2.5],[45,3],[50,3.5],
+        [55,4],[60,4.5],[65,5],[70,5.5],[75,6]
+      ]
+    }
+  };
+
   const DEFAULT_LABELS = {
     obs: "Rôle partenaire-observateur",
     geste: "Respect du geste",
@@ -312,6 +346,15 @@
           </div>
         </div>
 
+        <div style="margin:14px 0;padding:12px;border:1px solid #d8e1f3;border-radius:12px">
+          <b>Préréglages</b>
+          <p style="font-size:13px;color:#64748b;margin:6px 0 10px">Charge une grille complète, puis enregistre pour l'appliquer. Tu peux encore ajuster chaque ligne.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            ${Object.entries(PRESETS).map(([id, preset]) => `<button type="button" data-lr-preset="${id}">${esc(preset.label)}</button>`).join("")}
+          </div>
+          <small id="lrPresetStatus" aria-live="polite"></small>
+        </div>
+
         <p style="font-size:13px;color:#64748b">Une ligne par seuil : les points et la valeur à partir de laquelle ils sont attribués (temps au format 9:10, % sans le signe). L'élève obtient les points du dernier seuil atteint.</p>
 
         <div class="gt-sections">
@@ -331,6 +374,13 @@
     const shootingTable = DFGridTable.mount(d.querySelector("#lrShooting"), {kind:"number", unit:"%", placeholder:"60", rows:b.shooting});
 
     const session = !globalOnly ? current() : null;
+
+    d.querySelectorAll("[data-lr-preset]").forEach(button => button.onclick = () => {
+      const preset = PRESETS[button.dataset.lrPreset];
+      perfTable.set({girls:preset.girls, boys:preset.boys});
+      shootingTable.set({rows:preset.shooting});
+      d.querySelector("#lrPresetStatus").textContent = "« " + preset.label + " » chargé. Clique sur Enregistrer pour l'appliquer.";
+    });
 
     d.querySelector("#lrCancel").onclick = () => d.close();
 
