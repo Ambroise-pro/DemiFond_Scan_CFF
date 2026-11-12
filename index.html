@@ -42,7 +42,7 @@
 
 <header class="scan-app-header">
   <div class="app-brand"><h1>DemiFond Scan</h1><p>Le carnet du professeur</p></div>
-  <div><span id="scanNetworkStatus" class="network-status">v84</span></div>
+  <div><span id="scanNetworkStatus" class="network-status">v85</span></div>
 </header>
 
 <div id="classTabs" class="class-tabs" role="tablist" aria-label="Classes"></div>
@@ -418,13 +418,13 @@
 <script src="/grid-table-ui.js?v=1"></script>
 
 <!-- 3 x 500 + bareme modifiable -->
-<script src="/exam500-ui.js?v=19"></script>
+<script src="/exam500-ui.js?v=20"></script>
 
 <!-- Laser Run + bareme modifiable -->
-<script src="/laserrun-ui.js?v=5"></script>
+<script src="/laserrun-ui.js?v=6"></script>
 
 <!-- Barèmes personnalisés -->
-<script src="/custom-bareme-ui.js?v=4"></script>
+<script src="/custom-bareme-ui.js?v=5"></script>
 
 
 <!-- Résultats Chrono Carnet hors CCF -->
@@ -481,7 +481,7 @@
             await navigator
               .serviceWorker
               .register(
-                "/offline-worker.js?v=84",
+                "/offline-worker.js?v=85",
                 {
                   updateViaCache:
                     "none"
