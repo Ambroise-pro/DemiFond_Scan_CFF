@@ -1621,6 +1621,14 @@
 
   window.score500 = score500;
 
+  // Référentiels proposés à la création d'un exercice : écart et indice repris du barème enregistré.
+  window.DFExam500 = {
+    presets: () => [["seconde", "Seconde"], ["premiere", "Première"]],
+    preset: level => LEVEL_ANCHORS_500[level]
+      ? performancePreset500(level, db.settings?.exam500Bareme || DEFAULT_BAREME)
+      : null
+  };
+
   window.renderExam500View =
     function() {
       ensureBaremeButton();

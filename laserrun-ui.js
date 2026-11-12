@@ -1095,6 +1095,9 @@
   window.renderLaserRunView = refreshViews;
   window.DFLaserRun = {
     isPayload,
+    // Grilles proposées à la création d'un exercice : [id, libellé].
+    presets: () => Object.entries(PRESETS).map(([id, preset]) => [id, preset.label]),
+    preset: id => PRESETS[id] ? clone({girls:PRESETS[id].girls, boys:PRESETS[id].boys, shooting:PRESETS[id].shooting}) : null,
     openBareme: () => requestBaremeAccess(false),
     buildArchiveReport
   };

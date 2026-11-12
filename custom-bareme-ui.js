@@ -1384,8 +1384,10 @@ th{background:#e9eef7;font-size:10px}td:first-child,th:first-child{text-align:le
   function evaluationChoices() {
     return [
       ["data", "Aucune évaluation · données des QR seulement"],
-      ["laserrun", "Laser Run"],
-      ["exam500", "3 × 500"],
+      ["laserrun", "Laser Run · barème enregistré"],
+      ...(window.DFLaserRun?.presets?.() || []).map(([id, label]) => ["laserrun:" + id, "Laser Run · " + label]),
+      ["exam500", "3 × 500 · barème enregistré"],
+      ...(window.DFExam500?.presets?.() || []).map(([id, label]) => ["exam500:" + id, "3 × 500 · " + label]),
       ["ccf", "2 × 800 · AFL"],
       ...templates().map(t => ["custom:" + t.id, "Barème perso · " + t.name])
     ];
@@ -1400,6 +1402,19 @@ th{background:#e9eef7;font-size:10px}td:first-child,th:first-child{text-align:le
         exercise.customBareme = clone(template);
         return;
       }
+    }
+    // Un préréglage devient le barème propre de l'exercice, comme une copie du barème enregistré.
+    if (choice.startsWith("laserrun:")) {
+      const bareme = window.DFLaserRun?.preset(choice.slice(9));
+      exercise.type = "laserrun";
+      if (bareme) exercise.laserRunBareme = bareme;
+      return;
+    }
+    if (choice.startsWith("exam500:")) {
+      const bareme = window.DFExam500?.preset(choice.slice(8));
+      exercise.type = "exam500";
+      if (bareme) exercise.exam500Bareme = bareme;
+      return;
     }
     exercise.type = ["laserrun", "exam500", "ccf"].includes(choice) ? choice : "data";
   }
