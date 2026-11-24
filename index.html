@@ -42,7 +42,7 @@
 
 <header class="scan-app-header">
   <div class="app-brand"><h1>DemiFond Scan</h1><p>Le carnet du professeur</p></div>
-  <div><span id="scanNetworkStatus" class="network-status">v87</span></div>
+  <div><span id="scanNetworkStatus" class="network-status">v88</span></div>
 </header>
 
 <div id="classTabs" class="class-tabs" role="tablist" aria-label="Classes"></div>
@@ -437,8 +437,11 @@
 <!-- Aide -->
 <script src="/help-ui.js?v=2"></script>
 
+<!-- Scanner flottant -->
+<script src="/floating-scanner-ui.js?v=1"></script>
+
 <!-- Parcours professeur -->
-<script src="/workspace-ui.js?v=16"></script>
+<script src="/workspace-ui.js?v=17"></script>
 
 <!-- Scanner iPad -->
 <script src="/scanner-ios.js?v=2"></script>
@@ -481,7 +484,7 @@
             await navigator
               .serviceWorker
               .register(
-                "/offline-worker.js?v=87",
+                "/offline-worker.js?v=88",
                 {
                   updateViaCache:
                     "none"
