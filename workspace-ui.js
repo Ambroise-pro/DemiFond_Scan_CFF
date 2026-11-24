@@ -91,7 +91,7 @@
         const box=$(currentPage==='training-results'?'trainingResultContext':'examResultContext');
         if(box&&currentPage!=='group') { box.style.cssText=classStyle(group); box.innerHTML=header(group.name+' · '+dayLabel(exercise.lessonDate),exercise.label)+
           '<div class="flow-actions"><button type="button" data-action="edit-exercise">Corriger les résultats</button>'+
-          '<button type="button" class="flow-scan" data-action="scan-exercise" data-id="'+html(exercise.id)+'" '+(exercise.status==='locked'?'disabled':'')+'>📷 Scanner cet exercice</button>'+
+          '<button type="button" class="flow-scan" data-action="float-scan" data-id="'+html(exercise.id)+'" '+(exercise.status==='locked'?'disabled':'')+'>📷 Scanner cet exercice</button>'+
           '<button type="button" class="flow-primary" data-action="save-current-lesson">💾 Sauvegarder la séance en HTML</button>'+
           (exercise.type==='exam500'?'<button type="button" data-action="bareme">⚙️ Barème 3 × 500</button>':'')+
           (exercise.type==='laserrun'?'<button type="button" data-action="bareme-laserrun">⚙️ Barème Laser Run</button>':'')+
@@ -102,6 +102,7 @@
         }
       }
     }
+    syncFloatingScanner();
     renderClassTabs();
     renderCrumbs();
     renderClassBar();
@@ -289,6 +290,30 @@
         '<div class="flow-actions"><button type="button" class="flow-scan" data-action="scan-exercise" data-id="'+html(e.id)+'" '+(e.status==='locked'?'disabled':'')+'>📷 Scanner ici</button>'+
         (window.DFCustomBareme&&(!e.type||e.type==='custom'||(e.type==='data'&&!e.students?.length))?'<button type="button" data-action="apply-custom" data-id="'+html(e.id)+'">⚙️ Barème perso</button>':'')+'</div>'+
         (e.status==='locked'?'<small>🔒 Épreuve verrouillée</small>':'')+'<b class="exercise-open">Voir les résultats →</b></div>').join('')+'</div>';
+  }
+  // Floating scanner: scans into the open exercise while its results stay on screen.
+  const EXERCISE_PAGES = ['results','training-results','group'];
+  function floatScan() {
+    const {group,exercise}=activePair();
+    if(!group||!exercise||!window.DFFloatingScanner)return;
+    if(exercise.status==='locked'){toast('Cette épreuve est verrouillée.');return;}
+    target={groupId:group.id,sessionId:exercise.id};
+    window.DFFloatingScanner.open({title:group.name+' · '+exercise.label,onText:raw=>{
+      if(!targetReady())return {ok:false,text:'Exercice fermé : rouvre le scanner depuis l’exercice.'};
+      const message=$('scanMessage');
+      if(message){message.className='';message.textContent='';}
+      window.handleQR(raw);
+      // The scan page is hidden, so its line breaks are read from the markup.
+      const plain=document.createElement('div');plain.innerHTML=(message?.innerHTML||'').replace(/<br\s*\/?>/gi,' · ');
+      const text=plain.textContent.replace(/\s+/g,' ').trim();
+      return text?{ok:message.className==='scan-ok',text}:null;
+    }});
+  }
+  function syncFloatingScanner() {
+    if(!window.DFFloatingScanner?.isOpen())return;
+    if(!EXERCISE_PAGES.includes(currentPage)||!targetReady()){window.DFFloatingScanner.close();return;}
+    const {group,exercise}=activePair();
+    window.DFFloatingScanner.setTitle(group.name+' · '+exercise.label);
   }
   function quickScan() {
     if(['results','training-results','group','scan'].includes(currentPage)) {
@@ -610,6 +635,7 @@
     else if(a==='bareme')$('exam500BaremeBtn')?.click();
     else if(a==='bareme-laserrun')window.DFLaserRun?.openBareme();
     else if(a==='scan-exercise')openScan(button.dataset.id);
+    else if(a==='float-scan')floatScan();
     else if(a==='exercise-results')openResults(button.dataset.id);
     else if(a==='finish-scan')openLesson(classId,lessonId);
     else if(a==='change-destination')goFlow('classes');
